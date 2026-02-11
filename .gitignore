@@ -1,0 +1,12 @@
+__pycache__/
+venv/
+dataset_results/
+sample_results/
+comparison_results/
+demo_results/
+results/
+results_debug/
+results_strict/
+*.mp4
+*.png
+*.jpg
