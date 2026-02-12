@@ -1,4 +1,5 @@
 import cv2
+import os
 import mediapipe as mp
 import numpy as np
 import time
@@ -6,6 +7,7 @@ from pose_estimation import PoseEstimator
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 import torch
 from PIL import Image
+from joint_correction import JointCenterCorrector # [NEW] Import Corrector
 
 class SquatAnalyzer:
     def __init__(self):
@@ -19,15 +21,14 @@ class SquatAnalyzer:
         self.processor = AutoImageProcessor.from_pretrained(self.depth_model_id)
         self.depth_model = AutoModelForDepthEstimation.from_pretrained(self.depth_model_id).to(self.device)
         print("Depth Anything Model Loaded.")
+        
+        # [NEW] Joint Center Corrector (Geometric Proxy)
+        self.corrector = JointCenterCorrector(mode='geometric')
 
         # 상태 관리 (FSM)
-        self.state = "s1" # s1: Standing, s2: Transition, s3: Bottom
-        self.state_sequence = []
+        self.state = "UP" # UP, DOWN
         self.counter = 0
         self.feedback = ""
-        self.had_form_issue = False 
-        self.issue_types = set() 
-        self.issue_states = set() 
         
         # [Knee Mode Config]
         self.stand_knee_angle = 170.0 # Default assumption
@@ -46,13 +47,9 @@ class SquatAnalyzer:
 
     def reset(self):
         """Reset state for batch processing"""
-        self.state = "s1"
-        self.state_sequence = []
+        self.state = "UP"
         self.counter = 0
         self.feedback = ""
-        self.had_form_issue = False
-        self.issue_types = set()
-        self.issue_states = set()
         self.one_rm = 0.0
         self.side = None 
         self.stand_knee_angle = 170.0
@@ -62,56 +59,102 @@ class SquatAnalyzer:
 
     def finalize_analysis(self):
         """
-        Compute Global K from history (2-Pass Logic).
+        Perform 3-Pass Analysis for Optimal Accuracy.
+        Pass 1 (Detection): Already done in process_video (collects history_data).
+        Pass 2 (Optimization): Solve for Global K and Stable Radii using whole-video stats.
+        Pass 3 (Re-calculation): Re-compute all knee angles using the optimized K and Radii.
         """
         if not self.history_data:
             return self.counter, [], {}
             
+        # --- Pass 2: Optimization (Find the Best K and Radii) ---
+        
+        # 1. 관측된 최대 길이 추출
+        obs_max_thigh = max(f['thigh_len_2d'] for f in self.history_data)
+        obs_max_shank = max(f['shank_len_2d'] for f in self.history_data)
+        
+        # 2. [Rigid Body Strategy] 신체 비율 고정 (Anatomical Constraint)
+        # 허벅지와 정강이 중 더 길게(신뢰도 높게) 관측된 값을 기준으로 전체 비율을 동기화합니다.
+        # 기준: 허벅지 vs 정강이*1.2 중 더 큰 값을 '진짜 허벅지 길이'로 채택.
+        
+        final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
+        final_shank_len = final_thigh_len / 1.2 # 정강이는 무조건 허벅지의 약 0.83배로 고정
+        
+        # 3. 고정된 반지름 및 두께 차이 산출 (Physical Consistency)
+        # 이제 radii와 dr은 완벽한 1.2:1 비율 하에서 계산됩니다.
+        stable_radii = self.corrector.get_radii(final_thigh_len, final_shank_len)
+        dr_stable = stable_radii['knee'] - stable_radii['hip']
+        
         k_candidates = []
-        # Find global max lengths first
-        g_max_thigh = 0.0
         for frame in self.history_data:
-            g_max_thigh = max(g_max_thigh, frame['thigh_len_2d'])
-            
-        for frame in self.history_data:
-            shank_len = frame['shank_len_2d']
             thigh_len = frame['thigh_len_2d']
-            dZ = frame['dZ_thigh']
             
-            # Target Estimate (3-Way Selection)
-            # 1. Observed Max Thigh (Direct)
-            target_A = g_max_thigh
-            # 2. Shank Ratio
-            target_B = 1.2 * shank_len
-            # 3. Trunk Ratio (New Candidate)
-            target_C = 0.75 * frame['trunk_len_2d']
+            # Target is now a FIXED constant based on the rigid body model.
+            # We trust 'final_thigh_len' is the true 3D length.
+            target = final_thigh_len
             
-            target = max(target_A, target_B, target_C)
-            
-            if dZ > 1e-6 and target > thigh_len:
-                k_sq = (target**2 - thigh_len**2) / (dZ**2)
-                if k_sq > 0:
-                    k_candidates.append(np.sqrt(k_sq))
-                    
+            if target > thigh_len:
+                z_needed = np.sqrt(target**2 - thigh_len**2)
+                dZ_raw = frame['knee']['z'] - frame['hip']['z']
+                
+                if abs(dZ_raw) > 1e-6:
+                     # Solve for K with stable parameters
+                     k1 = (z_needed - dr_stable) / dZ_raw
+                     if k1 > 0: k_candidates.append(k1)
+                     
+                     k2 = (-z_needed - dr_stable) / dZ_raw
+                     if k2 > 0: k_candidates.append(k2)
+
+        # Determine Global K
         if k_candidates:
             base_k = float(np.median(k_candidates))
+            print(f"DEBUG: Found {len(k_candidates)} K candidates. Median: {base_k:.3f}")
             base_k = max(1.0, min(10000.0, base_k)) # Clamp
         else:
+            print("DEBUG: No valid K candidates found. Defaulting to 1.0.")
+            base_k = 1.0
+            
+        print(f"DEBUG: 3-Pass Analysis Complete. Global K={base_k:.3f}, Dr={dr_stable:.1f}")
+        print(f"DEBUG: Body Model -> Thigh: {final_thigh_len:.1f}, Shank: {final_shank_len:.1f} (Ratio 1.2:1)")
+
+        # --- Pass 3: Re-calculation (Apply Optimal Parameters) ---
+        final_angles = []
+        
+        for frame in self.history_data:
+            # 1. Recover scale using Global K
+            hip_z_metric = frame['hip']['z'] * base_k
+            knee_z_metric = frame['knee']['z'] * base_k
+            ankle_z_metric = frame['ankle']['z'] * base_k
+            
+            # 2. Apply Center Correction (Radius Push)
+            hip_z_center = hip_z_metric + stable_radii['hip']
+            knee_z_center = knee_z_metric + stable_radii['knee']
+            ankle_z_center = ankle_z_metric + stable_radii['ankle']
+            
+            # 3. Form 3D Points
+            hip_3d = {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z_center}
+            knee_3d = {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z_center}
+            ankle_3d = {'x': frame['ankle']['x'], 'y': frame['ankle']['y'], 'z': ankle_z_center}
+            
+            # 4. Calculate Final 3D Angle
+            angle_3d = self.calculate_knee_angle(hip_3d, knee_3d, ankle_3d)
+            final_angles.append(angle_3d)
+            
+        return self.counter, final_angles, {'base_k': base_k, 'dr': dr_stable}
+
+        if k_candidates:
+            # Robust Median
+            base_k = float(np.median(k_candidates))
+            print(f"DEBUG: Found {len(k_candidates)} K candidates. Median: {base_k:.3f}")
+            base_k = max(1.0, min(10000.0, base_k)) # Clamp
+        else:
+            print("DEBUG: No valid K candidates found. Defaulting to 1.0.")
             base_k = 1.0
             
         print(f"DEBUG: 2-Pass Knee Re-Eval. Global K={base_k:.3f}")
         
         # Return calibration data for Pass 2 override
         return self.counter, [], {'base_k': base_k}
-        # For Trunk Angle (2D)
-        delta_x = p2['x'] - p1['x']
-        delta_y = p2['y'] - p1['y']
-        vec_len = np.sqrt(delta_x**2 + delta_y**2)
-        if vec_len == 0: return 0
-        dot_product = delta_y
-        cosine_angle = dot_product / vec_len
-        angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
-        return np.degrees(angle)
 
     @staticmethod
     def calculate_knee_angle(hip, knee, ankle):
@@ -146,8 +189,8 @@ class SquatAnalyzer:
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        import os
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        if os.path.dirname(output_path):
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
         
@@ -170,10 +213,12 @@ class SquatAnalyzer:
                 pil_image = Image.fromarray(image_rgb)
                 
                 # Depth Anything Logic
-                if depth_estimator:
-                    inputs = depth_estimator.processor(images=pil_image, return_tensors="pt").to(depth_estimator.device)
+                model_source = depth_estimator if depth_estimator else self
+                
+                if model_source and hasattr(model_source, 'depth_model'):
+                    inputs = model_source.processor(images=pil_image, return_tensors="pt").to(model_source.device)
                     with torch.no_grad():
-                        outputs = depth_estimator.depth_model(**inputs)
+                        outputs = model_source.depth_model(**inputs)
                         predicted_depth = outputs.predicted_depth
                     prediction = torch.nn.functional.interpolate(
                         predicted_depth.unsqueeze(1), size=pil_image.size[::-1], mode="bicubic", align_corners=False,
@@ -181,8 +226,18 @@ class SquatAnalyzer:
                     depth_map = prediction.squeeze().cpu().numpy()
                     d_min, d_max = depth_map.min(), depth_map.max()
                     if d_max - d_min > 1e-6:
-                        depth_map = (depth_map - d_min) / (d_max - d_min)
-                        # Invert map if needed (Usually Depth Anything: Close=High)
+                        # Normalize 0..1
+                        # INVERTED: 1.0 - norm. So 0=Close (High Orig), 1=Far (Low Orig)
+                        # Wait, Depth Anything: High=Close.
+                        # We want Z to represent DISTANCE (Low=Close, High=Far) for "z += r" to mean "deeper".
+                        # So High Orig (Close) -> Low New (Close).
+                        # Low Orig (Far) -> High New (Far).
+                        # (val - min)/(max - min) maps min->0, max->1.
+                        # We want max->0 (Close), min->1 (Far).
+                        # So 1.0 - (val - min)/(range).
+                        depth_map = 1.0 - ((depth_map - d_min) / (d_max - d_min))
+                        
+                        # Scale Z to be comparable to X,Y pixels (0..1000)
                         # We need standard Z (Camera space): Close=Small Z, Far=Large Z?
                         # Actually for angle calc, relative scale matters.
                         # Let's map 0..1 to reasonable pixel-like scale for vector math
@@ -201,7 +256,7 @@ class SquatAnalyzer:
                     z = float(depth_map[py, px])
                     return {'x': px, 'y': py, 'z': z, 'vis': lm.get('visibility', 0.0)}
 
-                # Auto Side Selection
+                # Auto Side Selection 신뢰도 계산
                 if self.side is None:
                      left_vis = (landmarks_list[11]['visibility'] + landmarks_list[23]['visibility'] + landmarks_list[25]['visibility']) / 3
                      right_vis = (landmarks_list[12]['visibility'] + landmarks_list[24]['visibility'] + landmarks_list[26]['visibility']) / 3
@@ -245,10 +300,37 @@ class SquatAnalyzer:
                 knee_s['z'] *= self.z_scale_param
                 ankle_s['z'] *= self.z_scale_param
 
-                # --- KNEE ANGLE LOGIC (SIMPLE 2-PHASE) ---
-                knee_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
+                # --- [NEW] JOINT CENTER CORRECTION ---
+                # Prepare metadata for correction (using 2D lengths as proxy for size)
+                # We use the raw 2D lengths (before any Z-scaling) to estimate thickness
+                correction_meta = {
+                    'thigh_len': self.history_data[-1]['thigh_len_2d'],
+                    'shank_len': self.history_data[-1]['shank_len_2d'],
+                    # Ideally use global max if available (Pass 2)
+                    'max_thigh_len': self.history_data[-1]['thigh_len_2d'], 
+                    'max_shank_len': self.history_data[-1]['shank_len_2d']
+                }
                 
-                # Simple Thresholds
+                # Bundle joints
+                surface_joints = {'hip': hip_s, 'knee': knee_s, 'ankle': ankle_s}
+                
+                # Get Corrected Joints (Pushed Inwards)
+                center_joints = self.corrector.correct(surface_joints, correction_meta)
+                
+                hip_c = center_joints['hip']
+                knee_c = center_joints['knee']
+                ankle_c = center_joints['ankle']
+
+                # --- KNEE ANGLE LOGIC (SIMPLE 2-PHASE) ---
+                # Use CORRECTED (Center) Joints for Angle Calculation
+                knee_angle_3d = self.calculate_knee_angle(hip_c, knee_c, ankle_c)
+                
+                # Calculate Surface Angle for Comparison
+                surface_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
+                
+                # Simple Thresholds (Knee Joint Angle)
+                # TH_DOWN: High flexion (small angle) for bottom
+                # TH_UP: Extension (large angle) for standing
                 TH_DOWN = 95.0 
                 TH_UP = 165.0
                 
@@ -269,8 +351,9 @@ class SquatAnalyzer:
                 cv2.putText(image_draw, str(self.counter), (10,60), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255,255,255), 2, cv2.LINE_AA)
                 cv2.putText(image_draw, f'STATE: {self.state}', (150, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,0), 2, cv2.LINE_AA)
                 
-                cv2.putText(image_draw, f'Knee 3D: {int(knee_angle_3d)}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
-                cv2.putText(image_draw, f'DOWN < {int(TH_DOWN)} | UP > {int(TH_UP)}', (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+                cv2.putText(image_draw, f'Knee 3D (Center): {int(knee_angle_3d)}', (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+                cv2.putText(image_draw, f'Surface Angle: {int(surface_angle_3d)}', (10, 125), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+                cv2.putText(image_draw, f'DOWN < {int(TH_DOWN)} | UP > {int(TH_UP)}', (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
                 knee_px = (int(knee['x']), int(knee['y']))
                 cv2.putText(image_draw, str(int(knee_angle_3d)), knee_px, cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -282,6 +365,13 @@ class SquatAnalyzer:
         print(f"  > Count: {self.counter}")
         return self.counter, False, [], []
 
-    def finalize_analysis(self):
-        # Stub for compatibility with process_dataset.py
-        return self.counter, [], {}
+
+if __name__ == "__main__":
+    analyzer = SquatAnalyzer()
+    video_path = "dataset/true/true_14.mp4"
+    if os.path.exists(video_path):
+        analyzer.process_video(video_path, output_path="output_knee_corrected.mp4", show_window=False)
+        # Run 2-Pass Check
+        analyzer.finalize_analysis()
+    else:
+        print(f"Video not found: {video_path}")
