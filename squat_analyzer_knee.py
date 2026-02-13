@@ -109,7 +109,7 @@ class SquatAnalyzer:
         if k_candidates:
             base_k = float(np.median(k_candidates))
             print(f"DEBUG: Found {len(k_candidates)} K candidates. Median: {base_k:.3f}")
-            base_k = max(1.0, min(10000.0, base_k)) # Clamp
+            
         else:
             print("DEBUG: No valid K candidates found. Defaulting to 1.0.")
             base_k = 1.0
@@ -141,20 +141,6 @@ class SquatAnalyzer:
             final_angles.append(angle_3d)
             
         return self.counter, final_angles, {'base_k': base_k, 'dr': dr_stable}
-
-        if k_candidates:
-            # Robust Median
-            base_k = float(np.median(k_candidates))
-            print(f"DEBUG: Found {len(k_candidates)} K candidates. Median: {base_k:.3f}")
-            base_k = max(1.0, min(10000.0, base_k)) # Clamp
-        else:
-            print("DEBUG: No valid K candidates found. Defaulting to 1.0.")
-            base_k = 1.0
-            
-        print(f"DEBUG: 2-Pass Knee Re-Eval. Global K={base_k:.3f}")
-        
-        # Return calibration data for Pass 2 override
-        return self.counter, [], {'base_k': base_k}
 
     @staticmethod
     def calculate_knee_angle(hip, knee, ankle):
@@ -226,21 +212,7 @@ class SquatAnalyzer:
                     depth_map = prediction.squeeze().cpu().numpy()
                     d_min, d_max = depth_map.min(), depth_map.max()
                     if d_max - d_min > 1e-6:
-                        # Normalize 0..1
-                        # INVERTED: 1.0 - norm. So 0=Close (High Orig), 1=Far (Low Orig)
-                        # Wait, Depth Anything: High=Close.
-                        # We want Z to represent DISTANCE (Low=Close, High=Far) for "z += r" to mean "deeper".
-                        # So High Orig (Close) -> Low New (Close).
-                        # Low Orig (Far) -> High New (Far).
-                        # (val - min)/(max - min) maps min->0, max->1.
-                        # We want max->0 (Close), min->1 (Far).
-                        # So 1.0 - (val - min)/(range).
                         depth_map = 1.0 - ((depth_map - d_min) / (d_max - d_min))
-                        
-                        # Scale Z to be comparable to X,Y pixels (0..1000)
-                        # We need standard Z (Camera space): Close=Small Z, Far=Large Z?
-                        # Actually for angle calc, relative scale matters.
-                        # Let's map 0..1 to reasonable pixel-like scale for vector math
                         depth_map = depth_map * 1000.0 # Scale Z to be comparable to X,Y pixels
                 else:
                     depth_map = np.zeros((h_draw, w_draw))
@@ -287,12 +259,9 @@ class SquatAnalyzer:
                      'shank_len_2d': np.linalg.norm([ankle['x'] - knee['x'], ankle['y'] - knee['y']]),
                      'thigh_len_2d': np.linalg.norm([knee['x'] - hip['x'], knee['y'] - hip['y']]),
                      'trunk_len_2d': trunk_len_2d,
-                     'dZ_thigh': abs(hip['z'] - knee['z'])
+                     'dZ_thigh': abs(hip['z'] - knee['z']),
+                     'raw_image': frame.copy() # [FIXED] Added raw_image
                 })
-                
-                # Use fixed base_k if available (Pass 2), else default 1.0 (Pass 1)
-                # Note: For Pass 1, we use current z_scale_param which adapts.
-                # But here we stick to z_scale_param = 1.0 (or base_k) for consistency.
                 
                 # Apply Scale
                 hip_s = hip.copy(); knee_s = knee.copy(); ankle_s = ankle.copy()
@@ -301,20 +270,14 @@ class SquatAnalyzer:
                 ankle_s['z'] *= self.z_scale_param
 
                 # --- [NEW] JOINT CENTER CORRECTION ---
-                # Prepare metadata for correction (using 2D lengths as proxy for size)
-                # We use the raw 2D lengths (before any Z-scaling) to estimate thickness
                 correction_meta = {
                     'thigh_len': self.history_data[-1]['thigh_len_2d'],
                     'shank_len': self.history_data[-1]['shank_len_2d'],
-                    # Ideally use global max if available (Pass 2)
                     'max_thigh_len': self.history_data[-1]['thigh_len_2d'], 
                     'max_shank_len': self.history_data[-1]['shank_len_2d']
                 }
                 
-                # Bundle joints
                 surface_joints = {'hip': hip_s, 'knee': knee_s, 'ankle': ankle_s}
-                
-                # Get Corrected Joints (Pushed Inwards)
                 center_joints = self.corrector.correct(surface_joints, correction_meta)
                 
                 hip_c = center_joints['hip']
@@ -322,19 +285,12 @@ class SquatAnalyzer:
                 ankle_c = center_joints['ankle']
 
                 # --- KNEE ANGLE LOGIC (SIMPLE 2-PHASE) ---
-                # Use CORRECTED (Center) Joints for Angle Calculation
                 knee_angle_3d = self.calculate_knee_angle(hip_c, knee_c, ankle_c)
-                
-                # Calculate Surface Angle for Comparison
                 surface_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
                 
-                # Simple Thresholds (Knee Joint Angle)
-                # TH_DOWN: High flexion (small angle) for bottom
-                # TH_UP: Extension (large angle) for standing
                 TH_DOWN = 95.0 
                 TH_UP = 165.0
                 
-                # FSM Update (UP/DOWN)
                 if knee_angle_3d < TH_DOWN:
                     self.state = "DOWN"
                 
@@ -365,6 +321,135 @@ class SquatAnalyzer:
         print(f"  > Count: {self.counter}")
         return self.counter, False, [], []
 
+    def create_multiview_video(self, output_path, base_k, dr, stable_radii):
+        """
+        Generates a Multi-View Video (Original | 45-deg | 90-deg Side).
+        Visualizes the CORRECTED 3D skeleton from different angles.
+        [UPDATED] Centers the skeleton on the HIP to prevent it from going out of frame.
+        """
+        if not self.history_data:
+            print("No history data to visualize.")
+            return
+
+        print(f"Generating Multi-View Video with Auto-Centering to {output_path}...")
+        
+        # Video Writer Setup
+        sample_frame = self.history_data[0]['raw_image']
+        h, w = sample_frame.shape[:2]
+        
+        # Output width will be 3x original (3 panels)
+        out_w = w * 3
+        out_h = h
+        
+        # Scale factor for drawing (optional, to make sure it fits)
+        DRAW_SCALE = 0.8
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, 30.0, (out_w, out_h))
+        
+        # Helper: Project 3D point to 2D canvas with rotation and centering
+        # center_pt ensures rotation happens around a specific 3D point (e.g., hip)
+        def project_point(pt3d, angle_deg, offset_x, pivot_3d):
+            # 1. Translate point so pivot is at (0,0,0)
+            x_rel = (pt3d['x'] - pivot_3d['x']) * DRAW_SCALE
+            y_rel = (pt3d['y'] - pivot_3d['y']) * DRAW_SCALE
+            z_rel = (pt3d['z'] - pivot_3d['z']) * DRAW_SCALE # Z is depth relative to pivot
+            
+            # 2. Rotate around Y-axis
+            rad = np.radians(angle_deg)
+            # x' = x cos - z sin
+            # z' = x sin + z cos
+            x_rot = x_rel * np.cos(rad) - z_rel * np.sin(rad)
+            # y' = y (unchanged)
+            
+            # 3. Map back to screen (Ankle-Centered Logic)
+            # We want the ankle (pivot) to be at the bottom-center of the panel
+            cx = w // 2
+            cy = h - 50 # 50 pixels from bottom
+            
+            final_x = int(x_rot + cx) + offset_x
+            final_y = int(y_rel + cy) 
+            
+            return (final_x, final_y)
+
+        # Draw Skeleton Helper
+        def draw_skeleton(img, joints, angle, offset_x, pivot_name='ankle'):
+            # Pivot point for rotation (default: ankle for grounded look)
+            pivot_pt = joints[pivot_name]
+            
+            # Connections
+            connections = [
+                ('shoulder', 'hip'),
+                ('hip', 'knee'),
+                ('knee', 'ankle')
+            ]
+            
+            # Project all joints first
+            proj_joints = {}
+            for name, pt in joints.items():
+                proj_joints[name] = project_point(pt, angle, offset_x, pivot_pt)
+                
+            # Draw Ground Line (Reference)
+            # Draw a horizontal line at ankle height to represent the floor
+            floor_y = proj_joints['ankle'][1]
+            cv2.line(img, (offset_x + 20, floor_y), (offset_x + w - 20, floor_y), (100, 100, 100), 2)
+            
+            # Draw Lines (Bones)
+            for start, end in connections:
+                 if start in proj_joints and end in proj_joints:
+                     pt1 = proj_joints[start]
+                     pt2 = proj_joints[end]
+                     cv2.line(img, pt1, pt2, (255, 255, 255), 4) # White Bone
+            
+            # Draw Points (Joints)
+            for name, pt in proj_joints.items():
+                color = (0, 255, 255) # Yellow
+                if name == 'knee': color = (0, 0, 255) # Red Knee
+                if name == 'hip': color = (255, 0, 0) # Blue Hip
+                cv2.circle(img, pt, 8, color, -1)
+
+        # Frame Loop
+        for frame in self.history_data:
+            # 1. Reconstruct 3D Points (Same logic as final_analysis)
+            hip_z = frame['hip']['z'] * base_k + stable_radii['hip']
+            knee_z = frame['knee']['z'] * base_k + stable_radii['knee']
+            ankle_z = frame['ankle']['z'] * base_k + stable_radii['ankle']
+            
+            # Use hip z for shoulder approx if not tracked perfectly
+            shoulder_z = hip_z 
+            
+            # Create 3D Joint Dict
+            joints_3d = {
+                'hip': {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z},
+                'knee': {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z},
+                'ankle': {'x': frame['ankle']['x'], 'y': frame['ankle']['y'], 'z': ankle_z},
+            }
+            # Add shoulder if available
+            if 'shoulder' in frame:
+                 joints_3d['shoulder'] = {'x': frame['shoulder']['x'], 'y': frame['shoulder']['y'], 'z': shoulder_z}
+
+            # 2. Prepare Canvas
+            canvas = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+            
+            # Panel 1: Original (RGB)
+            if frame['raw_image'] is not None:
+                canvas[:h, :w] = frame['raw_image']
+            
+            # Panel 2: 45 Degree View
+            # Background
+            cv2.rectangle(canvas, (w, 0), (2*w, h), (40, 40, 40), -1) # Dark Gray
+            draw_skeleton(canvas, joints_3d, 45, w)
+            cv2.putText(canvas, "45-Deg View (Ankle-Centered)", (w+20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+            
+            # Panel 3: 90 Degree Side View
+            cv2.rectangle(canvas, (2*w, 0), (3*w, h), (20, 20, 20), -1) # Almost Black
+            draw_skeleton(canvas, joints_3d, 90, 2*w)
+            cv2.putText(canvas, "90-Deg Side View", (2*w+20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+            
+            out.write(canvas)
+            
+        out.release()
+        print(f"Multi-View Video Generated: {output_path}")
 
 if __name__ == "__main__":
     analyzer = SquatAnalyzer()
