@@ -8,16 +8,17 @@ from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 import torch
 from PIL import Image
 from joint_correction import JointCenterCorrector # [NEW] Import Corrector
+from config import MODEL_CONFIG, SQUAT_THRESHOLDS # [REF] Central Config
 
 class SquatAnalyzer:
     def __init__(self):
         # MediaPipe Pose 초기화
-        self.pose_estimator = PoseEstimator(static_image_mode=False, model_complexity=1)
+        self.pose_estimator = PoseEstimator(static_image_mode=False, model_complexity=MODEL_CONFIG['POSE_MODEL_COMPLEXITY'])
         
         # Depth Anything V2 초기화 - ENABLED (For 3D Coordinates)
         print("Loading Depth Anything V2-Small (Knee Mode)...")
-        self.depth_model_id = "depth-anything/Depth-Anything-V2-Small-hf"
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.depth_model_id = MODEL_CONFIG['DEPTH_MODEL_ID']
+        self.device = MODEL_CONFIG['DEVICE']
         self.processor = AutoImageProcessor.from_pretrained(self.depth_model_id)
         self.depth_model = AutoModelForDepthEstimation.from_pretrained(self.depth_model_id).to(self.device)
         print("Depth Anything Model Loaded.")
@@ -30,31 +31,14 @@ class SquatAnalyzer:
         self.counter = 0
         self.feedback = ""
         
-        # [Knee Mode Config]
-        self.stand_knee_angle = 170.0 # Default assumption
-        self.is_calibrated = False
-        
-        # Thresholds (Relative)
-        self.required_flexion = 60.0 # Must bend at least 60 degrees from standing
-        
-        # Posture Issue Thresholds
-        self.TRUNK_LIMIT = 35.0 
-        self.ALIGN_LIMIT = 20.0 
-        
         self.side = None
-        self.weight = 20.0
-        self.one_rm = 0.0
 
     def reset(self):
         """Reset state for batch processing"""
         self.state = "UP"
         self.counter = 0
         self.feedback = ""
-        self.one_rm = 0.0
         self.side = None 
-        self.stand_knee_angle = 170.0
-        self.is_calibrated = False
-        self.z_scale_param = 1.0 # Default
         self.history_data = [] # [NEW]
 
     def finalize_analysis(self):
@@ -80,67 +64,90 @@ class SquatAnalyzer:
         final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
         final_shank_len = final_thigh_len / 1.2 # 정강이는 무조건 허벅지의 약 0.83배로 고정
         
-        # 3. 고정된 반지름 및 두께 차이 산출 (Physical Consistency)
-        # 이제 radii와 dr은 완벽한 1.2:1 비율 하에서 계산됩니다.
-        stable_radii = self.corrector.get_radii(final_thigh_len, final_shank_len)
-        dr_stable = stable_radii['knee'] - stable_radii['hip']
+        # 3. 선형 회귀를 통한 Global K 산출 (정강이-Shank- 기반)
+        # 엉덩이의 동적 두께 변화로 인한 오차를 피하기 위해, 두께 왜곡이 거의 없는 무릎-발목(Shank) 데이터로 K를 구합니다.
+        stable_radii = self.corrector.get_radii(final_thigh_len, final_shank_len) 
+
+        X_data = [] # dZ_raw (정강이의 순수 표면 깊이 격차, 단위: 상대값)
+        Y_data = [] # Z_needed_bone (피타고라스가 요구하는 순수 내부 뼈 깊이 격차, 단위: 픽셀)
         
-        k_candidates = []
         for frame in self.history_data:
-            thigh_len = frame['thigh_len_2d']
+            shank_len = frame['shank_len_2d']
+            target_shank = final_shank_len
             
-            # Target is now a FIXED constant based on the rigid body model.
-            # We trust 'final_thigh_len' is the true 3D length.
-            target = final_thigh_len
-            
-            if target > thigh_len:
-                z_needed = np.sqrt(target**2 - thigh_len**2)
-                dZ_raw = frame['knee']['z'] - frame['hip']['z']
+            # 발목-무릎에 Z축 변위가 발생한 프레임만 사용
+            if target_shank > shank_len:
+                # 1. 뼈 속 기준 절대 깊이 도출
+                z_needed_bone_shank = np.sqrt(target_shank**2 - shank_len**2)
+                dZ_raw_shank = frame['ankle']['z'] - frame['knee']['z']
                 
-                if abs(dZ_raw) > 1e-6:
-                     # Solve for K with stable parameters
-                     k1 = (z_needed - dr_stable) / dZ_raw
-                     if k1 > 0: k_candidates.append(k1)
+                if abs(dZ_raw_shank) > 1e-6:
+                    # 방향 맞추기 (dZ_raw 방향에 맞게 Z_needed 부호 결정)
+                    signed_z_needed_bone = z_needed_bone_shank if dZ_raw_shank > 0 else -z_needed_bone_shank
+                    
+                    # 2. 픽셀 오차(dr)를 미리 빼지 않습니다!
+                    # X는 순수 표면 뎁스, Y는 순수 뼈대 뎁스. (Y = K * X + C)
+                    # 선형 회귀가 X를 픽셀화시키는 K와, 표면-뼈 사이의 평균 두께 오차 C를 스스로 찾아내게 합니다.
+                    X_data.append(dZ_raw_shank)
+                    Y_data.append(signed_z_needed_bone)
+
+        # 선형 회귀 (Linear Regression) 적용
+        if len(X_data) > 2:
+            # 1차 방정식 피팅 (Z_bone = K * dZ_surface + C)
+            coefficients = np.polyfit(X_data, Y_data, 1)
+            base_k = float(coefficients[0])  
+            dynamic_dr_shank = float(coefficients[1]) # 회귀가 증명한 이 영상의 정강이 두께 총 오차
+            
+            # K가 음수이면(카메라 방향 역전) 절대값으로 보정
+            if base_k <= 0:
+                 base_k = abs(base_k)
+                 if base_k == 0: base_k = 1.0
                      
-                     k2 = (-z_needed - dr_stable) / dZ_raw
-                     if k2 > 0: k_candidates.append(k2)
-
-        # Determine Global K
-        if k_candidates:
-            base_k = float(np.median(k_candidates))
-            print(f"DEBUG: Found {len(k_candidates)} K candidates. Median: {base_k:.3f}")
-            
+            print(f"DEBUG: Shank-Based Regression fit with {len(X_data)} pairs.")
+            print(f"DEBUG: Pure Scale Regression K = {base_k:.3f}, Dynamic C (dr_shank) = {dynamic_dr_shank:.1f}")
         else:
-            print("DEBUG: No valid K candidates found. Defaulting to 1.0.")
             base_k = 1.0
-            
-        print(f"DEBUG: 3-Pass Analysis Complete. Global K={base_k:.3f}, Dr={dr_stable:.1f}")
-        print(f"DEBUG: Body Model -> Thigh: {final_thigh_len:.1f}, Shank: {final_shank_len:.1f} (Ratio 1.2:1)")
+            print("DEBUG: Not enough valid shank data for regression. Defaulting K to 1.0.")
 
-        # --- Pass 3: Re-calculation (Apply Optimal Parameters) ---
+        print(f"DEBUG: 3-Pass Analysis Complete. Global K={base_k:.3f}")
+        print(f"DEBUG: Body Model -> Thigh: {final_thigh_len:.1f}, Shank: {final_shank_len:.1f}")
+
+        # --- Pass 3: Re-calculation (Knee Anchoring & Rigid Hip) ---
         final_angles = []
         
         for frame in self.history_data:
-            # 1. Recover scale using Global K
-            hip_z_metric = frame['hip']['z'] * base_k
+            # 1. 무릎(Knee) 중심 좌표 계산 (글로벌 앵커 포인트)
             knee_z_metric = frame['knee']['z'] * base_k
-            ankle_z_metric = frame['ankle']['z'] * base_k
-            
-            # 2. Apply Center Correction (Radius Push)
-            hip_z_center = hip_z_metric + stable_radii['hip']
             knee_z_center = knee_z_metric + stable_radii['knee']
-            ankle_z_center = ankle_z_metric + stable_radii['ankle']
-            
-            # 3. Form 3D Points
-            hip_3d = {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z_center}
             knee_3d = {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z_center}
+            
+            # 2. 발목(Ankle) 강체 역전개 (무릎 앵커 기준)
+            shank_len = frame['shank_len_2d']
+            if final_shank_len > shank_len:
+                 z_needed_shank = np.sqrt(final_shank_len**2 - shank_len**2)
+            else:
+                 z_needed_shank = 0.0
+            direction_shank = 1 if frame['ankle']['z'] > frame['knee']['z'] else -1
+            ankle_z_center = knee_z_center + (direction_shank * z_needed_shank)
             ankle_3d = {'x': frame['ankle']['x'], 'y': frame['ankle']['y'], 'z': ankle_z_center}
+            
+            # 3. 골반(Hip) 강체 역전개 (무릎 앵커 기준)
+            thigh_len = frame['thigh_len_2d']
+            
+            if final_thigh_len > thigh_len:
+                 z_needed_thigh = np.sqrt(final_thigh_len**2 - thigh_len**2)
+            else:
+                 z_needed_thigh = 0.0
+                 
+            direction_hip = 1 if frame['hip']['z'] > frame['knee']['z'] else -1
+            hip_z_center = knee_z_center + (direction_hip * z_needed_thigh)
+            hip_3d = {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z_center}
             
             # 4. Calculate Final 3D Angle
             angle_3d = self.calculate_knee_angle(hip_3d, knee_3d, ankle_3d)
             final_angles.append(angle_3d)
             
-        return self.counter, final_angles, {'base_k': base_k, 'dr': dr_stable}
+        return self.counter, final_angles, {'base_k': base_k, 'dynamic_dr_shank': dynamic_dr_shank if 'dynamic_dr_shank' in locals() else 0.0}
 
     @staticmethod
     def calculate_knee_angle(hip, knee, ankle):
@@ -249,25 +256,18 @@ class SquatAnalyzer:
                     out.write(image_draw)
                     continue
 
-                # --- RAZS & HISTORY STORAGE ---
-                # Calculate Trunk Length for Candidate 3
-                trunk_len_2d = np.linalg.norm([hip['x'] - shoulder['x'], hip['y'] - shoulder['y']])
-                
+                # --- HISTORY STORAGE ---
                 # Store data for 2-Pass Global Optimization
                 self.history_data.append({
                      'hip': hip, 'knee': knee, 'ankle': ankle,
                      'shank_len_2d': np.linalg.norm([ankle['x'] - knee['x'], ankle['y'] - knee['y']]),
                      'thigh_len_2d': np.linalg.norm([knee['x'] - hip['x'], knee['y'] - hip['y']]),
-                     'trunk_len_2d': trunk_len_2d,
-                     'dZ_thigh': abs(hip['z'] - knee['z']),
-                     'raw_image': frame.copy() # [FIXED] Added raw_image
+                     'raw_image': frame.copy(),
+                     'drawn_image': image_draw.copy() # Store the MediaPipe rendered frame
                 })
                 
-                # Apply Scale
+                # Apply Base Z Scale (1.0 for Pass 1 live preview)
                 hip_s = hip.copy(); knee_s = knee.copy(); ankle_s = ankle.copy()
-                hip_s['z'] *= self.z_scale_param
-                knee_s['z'] *= self.z_scale_param
-                ankle_s['z'] *= self.z_scale_param
 
                 # --- [NEW] JOINT CENTER CORRECTION ---
                 correction_meta = {
@@ -288,8 +288,8 @@ class SquatAnalyzer:
                 knee_angle_3d = self.calculate_knee_angle(hip_c, knee_c, ankle_c)
                 surface_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
                 
-                TH_DOWN = 95.0 
-                TH_UP = 165.0
+                TH_DOWN = SQUAT_THRESHOLDS['KNEE_ANGLE_DOWN']
+                TH_UP = SQUAT_THRESHOLDS['KNEE_ANGLE_UP']
                 
                 if knee_angle_3d < TH_DOWN:
                     self.state = "DOWN"
@@ -300,6 +300,9 @@ class SquatAnalyzer:
                              
                 # Visualization
                 self.pose_estimator._draw_landmarks(image_draw, landmarks_list)
+                
+                # Update the stored drawn_image with the landmarks
+                self.history_data[-1]['drawn_image'] = image_draw.copy()
                 
                 # Dashboard
                 cv2.rectangle(image_draw, (0,0), (400, 150), (245, 117, 16), -1) 
@@ -318,7 +321,7 @@ class SquatAnalyzer:
             
         cap.release()
         out.release()
-        print(f"  > Count: {self.counter}")
+        print(f"  > Count: {self.counter}, Side: {self.side.upper() if self.side else 'UNKNOWN'}")
         return self.counter, False, [], []
 
     def create_multiview_video(self, output_path, base_k, dr, stable_radii):
@@ -408,21 +411,44 @@ class SquatAnalyzer:
                 if name == 'hip': color = (255, 0, 0) # Blue Hip
                 cv2.circle(img, pt, 8, color, -1)
 
+        obs_max_thigh = max(f['thigh_len_2d'] for f in self.history_data)
+        obs_max_shank = max(f['shank_len_2d'] for f in self.history_data)
+        final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
+
         # Frame Loop
         for frame in self.history_data:
-            # 1. Reconstruct 3D Points (Same logic as final_analysis)
-            hip_z = frame['hip']['z'] * base_k + stable_radii['hip']
-            knee_z = frame['knee']['z'] * base_k + stable_radii['knee']
-            ankle_z = frame['ankle']['z'] * base_k + stable_radii['ankle']
+            # 1. 무릎(Knee) 글로벌 앵커 포인트
+            knee_z_metric = frame['knee']['z'] * base_k
+            knee_z_center = knee_z_metric + stable_radii['knee']
+            
+            # 2. 길이 제약을 이용한 양방향 역전개 (Hip & Ankle)
+            thigh_len = frame['thigh_len_2d']
+            shank_len = frame['shank_len_2d']
+            
+            if final_thigh_len > thigh_len:
+                 z_needed_thigh = np.sqrt(final_thigh_len**2 - thigh_len**2)
+            else:
+                 z_needed_thigh = 0.0
+                 
+            if final_shank_len > shank_len:
+                 z_needed_shank = np.sqrt(final_shank_len**2 - shank_len**2)
+            else:
+                 z_needed_shank = 0.0
+                 
+            direction_hip = 1 if frame['hip']['z'] > frame['knee']['z'] else -1
+            direction_shank = 1 if frame['ankle']['z'] > frame['knee']['z'] else -1
+            
+            hip_z_center = knee_z_center + (direction_hip * z_needed_thigh)
+            ankle_z_center = knee_z_center + (direction_shank * z_needed_shank)
             
             # Use hip z for shoulder approx if not tracked perfectly
-            shoulder_z = hip_z 
+            shoulder_z = hip_z_center 
             
             # Create 3D Joint Dict
             joints_3d = {
-                'hip': {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z},
-                'knee': {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z},
-                'ankle': {'x': frame['ankle']['x'], 'y': frame['ankle']['y'], 'z': ankle_z},
+                'hip': {'x': frame['hip']['x'], 'y': frame['hip']['y'], 'z': hip_z_center},
+                'knee': {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z_center},
+                'ankle': {'x': frame['ankle']['x'], 'y': frame['ankle']['y'], 'z': ankle_z_center},
             }
             # Add shoulder if available
             if 'shoulder' in frame:
