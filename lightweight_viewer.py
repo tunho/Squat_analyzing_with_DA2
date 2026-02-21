@@ -1,100 +1,52 @@
 import numpy as np
+import cv2
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
+import pickle
 import sys
+import argparse
 import os
 
-# Ensure local modules are found
-sys.path.append(os.getcwd())
-from squat_analyzer_knee import SquatAnalyzer
+# ==========================================
+# CONFIGURATION
+# ==========================================
+VIEWER_CONFIG = {
+    'WINDOW_SIZE': 5,            # Savitzky-Golay Window (Must be odd)
+    'POLY_ORDER': 2,             # Savitzky-Golay Polynomial Order
+    'ANIMATION_INTERVAL': 40,    # ms (25fps)
+    'DEFAULT_ELEV': 10,
+    'DEFAULT_AZIM': -90,          # -90 = Side View, 0 = Front View
+    'AXIS_LIMIT': 500             # Plot boundary size
+}
 
-from config import FILTER_CONFIG, VIEWER_CONFIG # [REF] Central Config
-
-class SquatViewer3D:
-    def __init__(self, analyzer):
-        self.history_data = analyzer.history_data
-        self.side = getattr(analyzer, 'side', 'Unknown').capitalize() # 'right' -> 'Right'
-        
-        # 3-Pass Logic to Get Best Parameters
-        if not self.history_data:
-            print("No data to visualize!")
-            sys.exit(1)
+class LightweightSquatViewer:
+    def __init__(self, pickle_path):
+        print(f"Loading data from {pickle_path}...")
+        with open(pickle_path, 'rb') as f:
+            data = pickle.load(f)
             
-        # [NEW] Apply Window Filtering (Savitzky-Golay Smoothing) to Raw Coordinates
-        if FILTER_CONFIG['ENABLED']:
-            try:
-                from scipy.signal import savgol_filter
-                print("Applying Window Filtering (Savitzky-Golay)...")
-                
-                joints = ['hip', 'knee', 'ankle']
-                coords = ['x', 'y', 'z'] # 2D pixel x,y and MediaPipe z
-                
-                # Extract data arrays
-                n_frames = len(self.history_data)
-                window_length = FILTER_CONFIG['WINDOW_LENGTH'] 
-                if n_frames < window_length: window_length = n_frames if n_frames % 2 == 1 else n_frames - 1
-                polyorder = FILTER_CONFIG['POLY_ORDER']
-                
-                if window_length > 3:
-                    for joint in joints:
-                        for axis in coords:
-                            raw_vals = [f[joint][axis] for f in self.history_data]
-                            smooth_vals = savgol_filter(raw_vals, window_length, polyorder)
-                            
-                            # Update history_data with smoothed values
-                            for i, val in enumerate(smooth_vals):
-                                self.history_data[i][joint][axis] = val
-                                
-                print("Smoothing Complete.")
-                
-            except ImportError:
-                print("SciPy not found. Skipping smoothing.")
-        else:
-            print("Smoothing (Filter) Disabled via Config.")
-                            
-
-            
-        # [ALIGNMENT] Retrieve parameters directly from Analyzer logic
-        # 3. Get Optimized Parameters from Analyzer
-        print("Running Analyzer Optimization to sync parameters...")
-        # finalize_analysis returns (counter, angles, debug_dict)
-        # debug_dict contains {'base_k': ..., 'dr': ...}
-        _, _, params = analyzer.finalize_analysis()
-        
-        self.base_k = params.get('base_k', 1.0)
-        
-        # 4. Define Rigid Body Lengths (Same logic as Analyzer)
-        obs_max_thigh = max(f['thigh_len_2d'] for f in self.history_data)
-        obs_max_shank = max(f['shank_len_2d'] for f in self.history_data)
-        
-        self.final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
-        self.final_shank_len = self.final_thigh_len / 1.2
-        
-        # 5. Get Consistent Radii
-        self.stable_radii = analyzer.corrector.get_radii(self.final_thigh_len, self.final_shank_len)
-        
-        print(f"Viewer Initialized. K={self.base_k:.3f}, ThighLen={self.final_thigh_len:.1f}")
+        self.history_data = data['history_data']
+        self.base_k = data['base_k']
+        self.final_thigh_len = data['final_thigh_len']
+        self.final_shank_len = data['final_shank_len']
+        self.stable_radii = data['stable_radii']
+        self.side = "UNKNOWN" # simplified
+        print("Data successfully loaded! Launching Matplotlib Viewer...")
 
     def update_lines(self, num, lines, points, image_plot):
-        # Current Frame Data
         frame = self.history_data[num]
         
         # 1. Update Video Frame
         if image_plot is not None and frame.get('drawn_image') is not None:
-            # Convert BGR to RGB for Matplotlib, using the image drawn by MediaPipe
             rgb_frame = frame['drawn_image'][..., ::-1]
             image_plot.set_data(rgb_frame)
             
-
-
         # [A] Knee (Global Anchor)
         knee_z_metric = frame['knee']['z'] * self.base_k
         knee_z_center = knee_z_metric + self.stable_radii['knee']
         p_final_knee = np.array([frame['knee']['x'], frame['knee']['y'], knee_z_center])
         
         # [B] Ankle (Dynamic Anchor Connection from Knee)
-        # 스무딩 등 좌표 변화가 있을 수 있으므로 현재 X, Y로 2D 길이를 다시 계산합니다.
         shank_len = np.linalg.norm([frame['ankle']['x'] - frame['knee']['x'], frame['ankle']['y'] - frame['knee']['y']])
         
         if self.final_shank_len > shank_len:
@@ -148,19 +100,14 @@ class SquatViewer3D:
         points.set_data(xs, ys)
         points.set_3d_properties(zs)
         
-        # [Difference Check] Compare Raw Depth vs Rigid Body Depth
-        # Raw Depth (DAv2 * K + Radius)
         raw_knee_z_val = knee_z_base
         raw_hip_z_val = hip_z_base
-        
-        # Rigid Depth (Final Z after constraint)
         rigid_knee_z_val = p_final_knee[2]
-        rigid_hip_z_val = p_final_hip[2] - manual_offset # Exclude manual offset for fair comparison
+        rigid_hip_z_val = p_final_hip[2] - manual_offset
         
         diff_knee = rigid_knee_z_val - raw_knee_z_val
         diff_hip = rigid_hip_z_val - raw_hip_z_val
         
-        # [Debug] Calculate & Display Actual 3D Lengths
         len_thigh_3d = np.linalg.norm(p_final_hip - p_final_knee)
         len_shank_3d = np.linalg.norm(p_final_knee - p_final_ankle)
         
@@ -177,70 +124,51 @@ class SquatViewer3D:
         return lines + [points, image_plot, self.time_text if hasattr(self, 'time_text') else points]
 
     def start(self):
-        # Setup Figure with 2 Subplots
-        fig = plt.figure(figsize=(14, 8)) # Increased height for slider
+        fig = plt.figure(figsize=(14, 8))
         
-        # 1. Video Panel (Left)
+        # 1. Video Panel
         ax_video = fig.add_subplot(1, 2, 1)
         ax_video.set_title("Original Video (Synced)")
         ax_video.axis('off')
-        
-        # Initial Frame
-        first_frame = self.history_data[0]['raw_image'][..., ::-1]
+        first_frame = self.history_data[0]['drawn_image'][..., ::-1]
         image_plot = ax_video.imshow(first_frame)
         
-        # 2. 3D Panel (Right)
+        # 2. 3D Panel
         self.ax_3d = fig.add_subplot(1, 2, 2, projection='3d')
         self.ax_3d.set_title(f"3D Motion - {self.side} Knee (Click: L/R)")
         self.ax_3d.set_xlabel('X (Lateral)')
         self.ax_3d.set_ylabel('Y (Depth)')
         self.ax_3d.set_zlabel('Z (Height)')
         
-        # Custom View State
-        # Custom View State
         self.azim = VIEWER_CONFIG['DEFAULT_AZIM']
         self.elev = VIEWER_CONFIG['DEFAULT_ELEV']
         self.ax_3d.view_init(elev=self.elev, azim=self.azim)
         
-        # Set Consistent Axis Limits
         limit = VIEWER_CONFIG['AXIS_LIMIT']
         self.ax_3d.set_xlim3d([-limit/2, limit/2])
         self.ax_3d.set_ylim3d([-limit/2, limit/2])
         self.ax_3d.set_zlim3d([0, limit]) 
         
-        # Orientation Guides
         floor_z = 0
         self.ax_3d.text(0, -200, floor_z, "FRONT (Camera)", color='green', fontweight='bold', ha='center')
-        self.ax_3d.text(0, 200, floor_z, "BACK", color='gray', ha='center')
-        self.ax_3d.text(-200, 0, floor_z, "LEFT", color='gray', ha='center')
-        self.ax_3d.text(200, 0, floor_z, "RIGHT", color='gray', ha='center')
         self.ax_3d.quiver(0, 0, floor_z, 0, -50, 0, color='green', arrow_length_ratio=0.3)
 
-        # Initialize Lines
         lines = [self.ax_3d.plot([], [], [], 'b-', lw=4)[0] for _ in range(2)] 
         points, = self.ax_3d.plot([], [], [], 'ro', markersize=8)
-        
-        # [NEW] Text for Length Debug
         self.time_text = self.ax_3d.text2D(0.05, 0.95, "", transform=self.ax_3d.transAxes, color='black', fontsize=10, bbox=dict(facecolor='white', alpha=0.5))
         
-        # [NEW] Slider for Hip Depth Correction
         from matplotlib.widgets import Slider
-        
-        # Place slider at bottom
         ax_dr = plt.axes([0.25, 0.02, 0.50, 0.03], facecolor='lightgoldenrodyellow')
         self.s_dr = Slider(ax_dr, 'Hip Z Adjustment', -100.0, 100.0, valinit=0.0)
         
-        # Event Handler for Click Rotation
         def on_click(event):
             if event.inaxes != self.ax_3d: return
-            if event.button == 1: self.azim -= 1 # Left Click
-            elif event.button == 3: self.azim += 1 # Right Click
-            elif event.button == 2: self.azim = -90 # Middle Click Reset
+            if event.button == 1: self.azim -= 1 
+            elif event.button == 3: self.azim += 1 
+            elif event.button == 2: self.azim = -90 
             self.ax_3d.view_init(elev=self.elev, azim=self.azim)
             self.ax_3d.set_title(f"Angle: {self.azim}° (Elev: {self.elev}°)")
-            # Redraw happens in animation loop
 
-        # Scroll Event (Keep this if you want scroll to rotate faster)
         def on_scroll(event):
             if event.inaxes != self.ax_3d: return
             step = 10
@@ -249,56 +177,41 @@ class SquatViewer3D:
             self.ax_3d.view_init(elev=self.elev, azim=self.azim)
             self.ax_3d.set_title(f"Angle: {self.azim}° (Elev: {self.elev}°)")
 
-        # [NEW] Disable Default Mouse Drag Rotation
-        # Matplotlib's 3D plot rotates on drag by default. We want to BLOCK this.
         def on_move(event):
             if event.inaxes == self.ax_3d:
-                # Force reset view to our managed state if user tries to drag
                 self.ax_3d.view_init(elev=self.elev, azim=self.azim)
-
-        # [MODIFIED] Slider Update: Just force redraw if paused
-        def update_slider(val):
-            # No special logic needed, update_lines() reads self.s_dr.val every frame
-            pass
-            
-        self.s_dr.on_changed(update_slider)
 
         fig.canvas.mpl_connect('button_press_event', on_click)
         fig.canvas.mpl_connect('scroll_event', on_scroll)
-        fig.canvas.mpl_connect('motion_notify_event', on_move) # Block drag
+        fig.canvas.mpl_connect('motion_notify_event', on_move) 
 
-        # Create Animation
         ani = animation.FuncAnimation(
             fig, self.update_lines, frames=len(self.history_data),
             fargs=(lines, points, image_plot), interval=VIEWER_CONFIG['ANIMATION_INTERVAL'], blit=False
         )
         
-        # [NEW] Pause/Resume State and Event
+        # Pause/Resume State and Event
         self.is_paused = False
         def on_key(event):
-            if event.key == ' ': # 스페이스바(공백) 클릭 시
+            if event.key == ' ': 
                 if self.is_paused:
                     ani.resume()
                 else:
                     ani.pause()
                 self.is_paused = not self.is_paused
 
-        fig.canvas.mpl_connect('key_press_event', on_key) # Bind spacebar
-        
-        plt.subplots_adjust(bottom=0.15) # Make room for slider
+        fig.canvas.mpl_connect('key_press_event', on_key)
+        plt.subplots_adjust(bottom=0.15)
         plt.show()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python view_3d_interactive.py <video_path>")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('pickle_path', type=str, nargs='?', default='squat_data.pkl')
+    args = parser.parse_args()
+    
+    if not os.path.exists(args.pickle_path):
+        print(f"Error: {args.pickle_path} not found.")
         sys.exit(1)
         
-    video_path = sys.argv[1]
-    
-    print("Analyzing Video...")
-    analyzer = SquatAnalyzer()
-    analyzer.process_video(video_path, show_window=False) # Only Pass 1 needed to get history
-    
-    print("Launching Interactive 3D Viewer...")
-    viewer = SquatViewer3D(analyzer)
+    viewer = LightweightSquatViewer(args.pickle_path)
     viewer.start()
