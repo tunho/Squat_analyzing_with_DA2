@@ -6,6 +6,13 @@ import pickle
 import sys
 import argparse
 import os
+import matplotlib as mpl
+
+# Disable default matplotlib keyboard shortcuts for left/right arrows
+if 'left' in mpl.rcParams['keymap.back']:
+    mpl.rcParams['keymap.back'].remove('left')
+if 'right' in mpl.rcParams['keymap.forward']:
+    mpl.rcParams['keymap.forward'].remove('right')
 
 # ==========================================
 # CONFIGURATION
@@ -108,12 +115,33 @@ class LightweightSquatViewer:
         diff_knee = rigid_knee_z_val - raw_knee_z_val
         diff_hip = rigid_hip_z_val - raw_hip_z_val
         
+        # [NEW] Calculate Knee Angle (3D)
         len_thigh_3d = np.linalg.norm(p_final_hip - p_final_knee)
         len_shank_3d = np.linalg.norm(p_final_knee - p_final_ankle)
+
+        vec_thigh = p_final_hip - p_final_knee
+        vec_shank = p_final_ankle - p_final_knee
+        
+        norm_thigh = np.linalg.norm(vec_thigh)
+        norm_shank = np.linalg.norm(vec_shank)
+        
+        if norm_thigh > 0 and norm_shank > 0:
+            cos_theta = np.dot(vec_thigh, vec_shank) / (norm_thigh * norm_shank)
+            # Clip for numerical stability
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)
+            angle_rad = np.arccos(cos_theta)
+            angle_deg = np.degrees(angle_rad)
+        else:
+            angle_deg = 0.0
+            
+        # Lock angle to user-controlled values (suppresses default mplot3d arrow key rotation)
+        if hasattr(self, 'ax_3d') and hasattr(self, 'elev') and hasattr(self, 'azim'):
+            self.ax_3d.view_init(elev=self.elev, azim=self.azim)
         
         if hasattr(self, 'time_text'):
             self.time_text.set_text(
                 f"Frame: {num}\n"
+                f"Knee Angle: {angle_deg:.1f}\xb0\n"
                 f"Thigh: {len_thigh_3d:.1f} (Target: {self.final_thigh_len:.1f})\n"
                 f"Shank: {len_shank_3d:.1f} (Target: {self.final_shank_len:.1f})\n"
                 f"----------------\n"
@@ -185,13 +213,10 @@ class LightweightSquatViewer:
         fig.canvas.mpl_connect('scroll_event', on_scroll)
         fig.canvas.mpl_connect('motion_notify_event', on_move) 
 
-        ani = animation.FuncAnimation(
-            fig, self.update_lines, frames=len(self.history_data),
-            fargs=(lines, points, image_plot), interval=VIEWER_CONFIG['ANIMATION_INTERVAL'], blit=False
-        )
-        
         # Pause/Resume State and Event
         self.is_paused = False
+        self.current_frame = 0
+        
         def on_key(event):
             if event.key == ' ': 
                 if self.is_paused:
@@ -199,6 +224,29 @@ class LightweightSquatViewer:
                 else:
                     ani.pause()
                 self.is_paused = not self.is_paused
+            elif event.key == 'right':
+                if self.is_paused:
+                    self.current_frame = min(len(self.history_data) - 1, self.current_frame + 1)
+                    self.update_lines(self.current_frame, lines, points, image_plot)
+                    fig.canvas.draw_idle()
+            elif event.key == 'left':
+                if self.is_paused:
+                    self.current_frame = max(0, self.current_frame - 1)
+                    self.update_lines(self.current_frame, lines, points, image_plot)
+                    fig.canvas.draw_idle()
+
+        # We need a small helper to keep current_frame in sync with ani
+        def ani_frame_gen():
+            while True:
+                if not self.is_paused:
+                    self.current_frame = (self.current_frame + 1) % len(self.history_data)
+                yield self.current_frame
+
+        ani = animation.FuncAnimation(
+            fig, self.update_lines, frames=ani_frame_gen,
+            fargs=(lines, points, image_plot), interval=VIEWER_CONFIG['ANIMATION_INTERVAL'], blit=False,
+            save_count=len(self.history_data)
+        )
 
         fig.canvas.mpl_connect('key_press_event', on_key)
         plt.subplots_adjust(bottom=0.15)
