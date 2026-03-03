@@ -17,14 +17,12 @@ def extract_to_pickle(video_path, output_pkl):
     obs_max_shank = max(f['shank_len_2d'] for f in history)
     final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
     final_shank_len = final_thigh_len / 1.2
-    stable_radii = analyzer.corrector.get_radii(final_thigh_len, final_shank_len)
     
     data = {
         'history_data': history,
         'base_k': params.get('base_k', 1.0),
         'final_thigh_len': final_thigh_len,
-        'final_shank_len': final_shank_len,
-        'stable_radii': stable_radii
+        'final_shank_len': final_shank_len
     }
     
     with open(output_pkl, 'wb') as f:
@@ -36,7 +34,7 @@ def extract_to_pickle(video_path, output_pkl):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('video_path', type=str, nargs='?', default='dataset/true/true_5.mp4')
+    parser.add_argument('video_path', type=str, nargs='?', default='dataset/true/screencast_30fps.mp4')
     parser.add_argument('--out', type=str, default='squat_data.pkl')
     args = parser.parse_args()
     

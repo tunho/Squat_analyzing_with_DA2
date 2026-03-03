@@ -4,6 +4,14 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 import sys
 import os
+import cv2
+import matplotlib as mpl
+
+# Disable default matplotlib keyboard shortcuts for left/right arrows
+if 'left' in mpl.rcParams['keymap.back']:
+    mpl.rcParams['keymap.back'].remove('left')
+if 'right' in mpl.rcParams['keymap.forward']:
+    mpl.rcParams['keymap.forward'].remove('right')
 
 # Ensure local modules are found
 sys.path.append(os.getcwd())
@@ -71,9 +79,6 @@ class SquatViewer3D:
         self.final_thigh_len = max(obs_max_thigh, obs_max_shank * 1.2)
         self.final_shank_len = self.final_thigh_len / 1.2
         
-        # 5. Get Consistent Radii
-        self.stable_radii = analyzer.corrector.get_radii(self.final_thigh_len, self.final_shank_len)
-        
         print(f"Viewer Initialized. K={self.base_k:.3f}, ThighLen={self.final_thigh_len:.1f}")
 
     def update_lines(self, num, lines, points, image_plot):
@@ -84,13 +89,20 @@ class SquatViewer3D:
         if image_plot is not None and frame.get('drawn_image') is not None:
             # Convert BGR to RGB for Matplotlib, using the image drawn by MediaPipe
             rgb_frame = frame['drawn_image'][..., ::-1]
+            
+            # [NEW] Resize to fix Matplotlib Video Stuttering (Lag)
+            h, w = rgb_frame.shape[:2]
+            if w > 800:
+                scale = 800 / w
+                rgb_frame = cv2.resize(rgb_frame, (800, int(h * scale)))
+                
             image_plot.set_data(rgb_frame)
             
 
 
-        # [A] Knee (Global Anchor)
+        # [A] Knee (Global Anchor - Surface Point Base)
         knee_z_metric = frame['knee']['z'] * self.base_k
-        knee_z_center = knee_z_metric + self.stable_radii['knee']
+        knee_z_center = knee_z_metric
         p_final_knee = np.array([frame['knee']['x'], frame['knee']['y'], knee_z_center])
         
         # [B] Ankle (Dynamic Anchor Connection from Knee)
@@ -160,13 +172,33 @@ class SquatViewer3D:
         diff_knee = rigid_knee_z_val - raw_knee_z_val
         diff_hip = rigid_hip_z_val - raw_hip_z_val
         
-        # [Debug] Calculate & Display Actual 3D Lengths
+        # [NEW] Calculate Knee Angle (3D)
         len_thigh_3d = np.linalg.norm(p_final_hip - p_final_knee)
         len_shank_3d = np.linalg.norm(p_final_knee - p_final_ankle)
+
+        vec_thigh = p_final_hip - p_final_knee
+        vec_shank = p_final_ankle - p_final_knee
+        
+        norm_thigh = np.linalg.norm(vec_thigh)
+        norm_shank = np.linalg.norm(vec_shank)
+        
+        if norm_thigh > 0 and norm_shank > 0:
+            cos_theta = np.dot(vec_thigh, vec_shank) / (norm_thigh * norm_shank)
+            cos_theta = np.clip(cos_theta, -1.0, 1.0)
+            angle_rad = np.arccos(cos_theta)
+            angle_deg = np.degrees(angle_rad)
+        else:
+            angle_deg = 0.0
+            
+        # Lock angle to user-controlled values (suppresses default mplot3d arrow key rotation)
+        if hasattr(self, 'ax_3d') and hasattr(self, 'elev') and hasattr(self, 'azim'):
+            self.ax_3d.view_init(elev=self.elev, azim=self.azim)
         
         if hasattr(self, 'time_text'):
             self.time_text.set_text(
+                f"Analysis: {self.side} Leg\n"
                 f"Frame: {num}\n"
+                f"Knee Angle: {angle_deg:.1f}\xb0\n"
                 f"Thigh: {len_thigh_3d:.1f} (Target: {self.final_thigh_len:.1f})\n"
                 f"Shank: {len_shank_3d:.1f} (Target: {self.final_shank_len:.1f})\n"
                 f"----------------\n"
@@ -186,7 +218,14 @@ class SquatViewer3D:
         ax_video.axis('off')
         
         # Initial Frame
-        first_frame = self.history_data[0]['raw_image'][..., ::-1]
+        first_frame = self.history_data[0].get('drawn_image', self.history_data[0]['raw_image'])[..., ::-1]
+        
+        # [NEW] Resize Initial Frame as well
+        h, w = first_frame.shape[:2]
+        if w > 800:
+            scale = 800 / w
+            first_frame = cv2.resize(first_frame, (800, int(h * scale)))
+            
         image_plot = ax_video.imshow(first_frame)
         
         # 2. 3D Panel (Right)
@@ -202,8 +241,9 @@ class SquatViewer3D:
         self.elev = VIEWER_CONFIG['DEFAULT_ELEV']
         self.ax_3d.view_init(elev=self.elev, azim=self.azim)
         
-        # Set Consistent Axis Limits
-        limit = VIEWER_CONFIG['AXIS_LIMIT']
+        # Set Consistent Axis Limits (Dynamically scaled to fit long legs)
+        total_len_estimate = self.final_thigh_len + self.final_shank_len
+        limit = max(VIEWER_CONFIG['AXIS_LIMIT'], total_len_estimate * 1.4) 
         self.ax_3d.set_xlim3d([-limit/2, limit/2])
         self.ax_3d.set_ylim3d([-limit/2, limit/2])
         self.ax_3d.set_zlim3d([0, limit]) 
@@ -267,14 +307,10 @@ class SquatViewer3D:
         fig.canvas.mpl_connect('scroll_event', on_scroll)
         fig.canvas.mpl_connect('motion_notify_event', on_move) # Block drag
 
-        # Create Animation
-        ani = animation.FuncAnimation(
-            fig, self.update_lines, frames=len(self.history_data),
-            fargs=(lines, points, image_plot), interval=VIEWER_CONFIG['ANIMATION_INTERVAL'], blit=False
-        )
-        
         # [NEW] Pause/Resume State and Event
         self.is_paused = False
+        self.current_frame = 0
+        
         def on_key(event):
             if event.key == ' ': # 스페이스바(공백) 클릭 시
                 if self.is_paused:
@@ -282,8 +318,32 @@ class SquatViewer3D:
                 else:
                     ani.pause()
                 self.is_paused = not self.is_paused
+            elif event.key == 'right':
+                if self.is_paused:
+                    self.current_frame = min(len(self.history_data) - 1, self.current_frame + 1)
+                    self.update_lines(self.current_frame, lines, points, image_plot)
+                    fig.canvas.draw_idle()
+            elif event.key == 'left':
+                if self.is_paused:
+                    self.current_frame = max(0, self.current_frame - 1)
+                    self.update_lines(self.current_frame, lines, points, image_plot)
+                    fig.canvas.draw_idle()
 
-        fig.canvas.mpl_connect('key_press_event', on_key) # Bind spacebar
+        # We need a small helper to keep current_frame in sync with ani
+        def ani_frame_gen():
+            while True:
+                if not self.is_paused:
+                    self.current_frame = (self.current_frame + 1) % len(self.history_data)
+                yield self.current_frame
+
+        # Create Animation
+        ani = animation.FuncAnimation(
+            fig, self.update_lines, frames=ani_frame_gen,
+            fargs=(lines, points, image_plot), interval=VIEWER_CONFIG['ANIMATION_INTERVAL'], blit=False,
+            save_count=len(self.history_data)
+        )
+
+        fig.canvas.mpl_connect('key_press_event', on_key) # Bind spacebar and arrows
         
         plt.subplots_adjust(bottom=0.15) # Make room for slider
         plt.show()
@@ -297,8 +357,7 @@ if __name__ == "__main__":
     
     print("Analyzing Video...")
     analyzer = SquatAnalyzer()
-    analyzer.process_video(video_path, show_window=False) # Only Pass 1 needed to get history
-    
+    analyzer.process_video(video_path, show_window=False) 
     print("Launching Interactive 3D Viewer...")
     viewer = SquatViewer3D(analyzer)
     viewer.start()

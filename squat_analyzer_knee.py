@@ -7,7 +7,6 @@ from pose_estimation import PoseEstimator
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 import torch
 from PIL import Image
-from joint_correction import JointCenterCorrector # [NEW] Import Corrector
 from config import MODEL_CONFIG, SQUAT_THRESHOLDS # [REF] Central Config
 
 class SquatAnalyzer:
@@ -22,9 +21,6 @@ class SquatAnalyzer:
         self.processor = AutoImageProcessor.from_pretrained(self.depth_model_id)
         self.depth_model = AutoModelForDepthEstimation.from_pretrained(self.depth_model_id).to(self.device)
         print("Depth Anything Model Loaded.")
-        
-        # [NEW] Joint Center Corrector (Geometric Proxy)
-        self.corrector = JointCenterCorrector(mode='geometric')
 
         # 상태 관리 (FSM)
         self.state = "UP" # UP, DOWN
@@ -66,7 +62,7 @@ class SquatAnalyzer:
         
         # 3. 선형 회귀를 통한 Global K 산출 (정강이-Shank- 기반)
         # 엉덩이의 동적 두께 변화로 인한 오차를 피하기 위해, 두께 왜곡이 거의 없는 무릎-발목(Shank) 데이터로 K를 구합니다.
-        stable_radii = self.corrector.get_radii(final_thigh_len, final_shank_len) 
+        # Surface Point Solution: 최소제곱법이 선형 회귀의 절편(C)을 통해 뼈대-표면 오차를 자체적으로 해석합니다.
 
         X_data = [] # dZ_raw (정강이의 순수 표면 깊이 격차, 단위: 상대값)
         Y_data = [] # Z_needed_bone (피타고라스가 요구하는 순수 내부 뼈 깊이 격차, 단위: 픽셀)
@@ -116,9 +112,9 @@ class SquatAnalyzer:
         final_angles = []
         
         for frame in self.history_data:
-            # 1. 무릎(Knee) 중심 좌표 계산 (글로벌 앵커 포인트)
+            # 1. 무릎(Knee) 중심 좌표 계산 (글로벌 앵커 포인트 - 표면 기반)
             knee_z_metric = frame['knee']['z'] * base_k
-            knee_z_center = knee_z_metric + stable_radii['knee']
+            knee_z_center = knee_z_metric
             knee_3d = {'x': frame['knee']['x'], 'y': frame['knee']['y'], 'z': knee_z_center}
             
             # 2. 발목(Ankle) 강체 역전개 (무릎 앵커 기준)
@@ -269,24 +265,11 @@ class SquatAnalyzer:
                 # Apply Base Z Scale (1.0 for Pass 1 live preview)
                 hip_s = hip.copy(); knee_s = knee.copy(); ankle_s = ankle.copy()
 
-                # --- [NEW] JOINT CENTER CORRECTION ---
-                correction_meta = {
-                    'thigh_len': self.history_data[-1]['thigh_len_2d'],
-                    'shank_len': self.history_data[-1]['shank_len_2d'],
-                    'max_thigh_len': self.history_data[-1]['thigh_len_2d'], 
-                    'max_shank_len': self.history_data[-1]['shank_len_2d']
-                }
-                
-                surface_joints = {'hip': hip_s, 'knee': knee_s, 'ankle': ankle_s}
-                center_joints = self.corrector.correct(surface_joints, correction_meta)
-                
-                hip_c = center_joints['hip']
-                knee_c = center_joints['knee']
-                ankle_c = center_joints['ankle']
-
                 # --- KNEE ANGLE LOGIC (SIMPLE 2-PHASE) ---
-                knee_angle_3d = self.calculate_knee_angle(hip_c, knee_c, ankle_c)
-                surface_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
+                # For pass 1 (live rendering context) we just use the raw surface angles 
+                # (these will not be as accurate as Pass 3, but provide a fast visualization)
+                knee_angle_3d = self.calculate_knee_angle(hip_s, knee_s, ankle_s)
+                surface_angle_3d = knee_angle_3d
                 
                 TH_DOWN = SQUAT_THRESHOLDS['KNEE_ANGLE_DOWN']
                 TH_UP = SQUAT_THRESHOLDS['KNEE_ANGLE_UP']

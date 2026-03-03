@@ -26,7 +26,7 @@ SQUAT_THRESHOLDS = {
 # 3. Data Smoothing (Signal Processing)
 FILTER_CONFIG = {
     'ENABLED': True,
-    'WINDOW_LENGTH': 15,          # Must be odd. Larger = smoother but more lag.
+    'WINDOW_LENGTH': 31,          # Increased from 15 to 31 to drastically reduce standing still jitter
     'POLY_ORDER': 3               # Polynomial order for Savitzky-Golay filter.
 }
 
