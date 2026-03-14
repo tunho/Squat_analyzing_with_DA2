@@ -11,12 +11,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-# ---------------------------------------------------------------------------
-# Import bootstrap
-# Supports both:
-#   1) src/squat/... package layout
-#   2) flat repo layout shown in the uploaded zip
-# ---------------------------------------------------------------------------
 _THIS_FILE = Path(__file__).resolve()
 _CANDIDATE_PATHS = [
     _THIS_FILE.parent,
@@ -31,22 +25,16 @@ for _p in _CANDIDATE_PATHS:
             sys.path.insert(0, _s)
 
 try:
-    from squat.analyzer.knee_relative_linear import RelativeLinearSquatAnalyzer
-    from squat.calibration.relative_depth_calibration import (
-        RelativeDepthCalibrationParams,
-        fit_relative_depth_calibration,
-        predict_relative_dz,
-    )
-    from squat.domain.types import Point3D
+    from squat.analyzer.knee_relative import RelativeModelSquatAnalyzer
+    from squat.calibration.relative_model import RelativeDepthModel
+    from squat.calibration.relative_models import get_relative_model
+    from squat.domain.types import Point3D, SquatFrame
     from squat.geometry.angles import calculate_knee_angle
 except ImportError:
-    from analyzer.knee_relative_linear import RelativeLinearSquatAnalyzer
-    from calibration.relative_depth_calibration import (
-        RelativeDepthCalibrationParams,
-        fit_relative_depth_calibration,
-        predict_relative_dz,
-    )
-    from domain.types import Point3D
+    from analyzer.knee_relative import RelativeModelSquatAnalyzer
+    from calibration.relative_model import RelativeDepthModel
+    from calibration.relative_models import get_relative_model
+    from domain.types import Point3D, SquatFrame
     from geometry.angles import calculate_knee_angle
 
 
@@ -258,16 +246,18 @@ def save_error_plot(
     plt.close()
 
 
-class RelativeLinearAdapter:
-    name = "relative_linear"
+class RelativeModelAdapter:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.model = get_relative_model(name)
 
     def create_analyzer(self) -> Any:
-        return RelativeLinearSquatAnalyzer()
+        return RelativeModelSquatAnalyzer(model=self.name)
 
     def finalize_pred_angles(self, analyzer: Any) -> list[float]:
         _, pred_angles, params = analyzer.finalize_analysis()
         if params is None:
-            raise RuntimeError("RelativeLinearSquatAnalyzer returned no calibration params.")
+            raise RuntimeError(f"{self.name} returned no calibration params.")
         return pred_angles
 
     def compute_gt2d_injected_angles(
@@ -275,61 +265,42 @@ class RelativeLinearAdapter:
         analyzer: Any,
         aligned_gt: list[FrameAlignedData],
     ) -> list[float]:
-        frame_map = {int(frame.frame_index): frame for frame in analyzer.history_data}
+        frame_map: dict[int, SquatFrame] = {
+            int(frame.frame_index): frame for frame in analyzer.history_data
+        }
 
-        raw_dz_thigh_list: list[float] = []
-        thigh_len_2d_list: list[float] = []
-        raw_dz_shank_list: list[float] = []
-        shank_len_2d_list: list[float] = []
-        filtered_gt: list[FrameAlignedData] = []
-
+        filtered_frames: list[SquatFrame] = []
         for item in aligned_gt:
             frame = frame_map.get(item.frame_index)
             if frame is None:
                 continue
 
-            raw_dz_thigh_list.append(float(frame.hip.z - frame.knee.z))
-            thigh_len_2d_list.append(calc_2d_len(item.gt_hip, item.gt_knee))
-            raw_dz_shank_list.append(float(frame.ankle.z - frame.knee.z))
-            shank_len_2d_list.append(calc_2d_len(item.gt_knee, item.gt_ankle))
-            filtered_gt.append(item)
+            frame.thigh_len_2d = calc_2d_len(item.gt_hip, item.gt_knee)
+            frame.shank_len_2d = calc_2d_len(item.gt_knee, item.gt_ankle)
+            frame.hip.x = float(item.gt_hip[0])
+            frame.hip.y = float(item.gt_hip[1])
+            frame.knee.x = float(item.gt_knee[0])
+            frame.knee.y = float(item.gt_knee[1])
+            frame.ankle.x = float(item.gt_ankle[0])
+            frame.ankle.y = float(item.gt_ankle[1])
+            filtered_frames.append(frame)
 
-        if not filtered_gt:
+        if not filtered_frames:
             return []
 
-        params: RelativeDepthCalibrationParams = fit_relative_depth_calibration(
-            raw_dz_thigh_list=raw_dz_thigh_list,
-            thigh_len_2d_list=thigh_len_2d_list,
-            raw_dz_shank_list=raw_dz_shank_list,
-            shank_len_2d_list=shank_len_2d_list,
-        )
+        params = self.model.fit(filtered_frames)
+        if params is None:
+            return []
 
         angles: list[float] = []
-        for item in filtered_gt:
-            frame = frame_map[item.frame_index]
-            raw_dz_thigh = float(frame.hip.z - frame.knee.z)
-            raw_dz_shank = float(frame.ankle.z - frame.knee.z)
-
-            thigh_dz = predict_relative_dz(raw_dz_thigh, params.thigh_a, params.thigh_b)
-            shank_dz = predict_relative_dz(raw_dz_shank, params.shank_a, params.shank_b)
-
-            knee = Point3D(float(item.gt_knee[0]), float(item.gt_knee[1]), 0.0)
-            hip = Point3D(float(item.gt_hip[0]), float(item.gt_hip[1]), float(thigh_dz))
-            ankle = Point3D(float(item.gt_ankle[0]), float(item.gt_ankle[1]), float(shank_dz))
+        for frame in filtered_frames:
+            hip, knee, ankle = self.model.build_points(frame, params)
             angles.append(calculate_knee_angle(hip, knee, ankle))
-
         return angles
 
 
 def get_adapter(name: str) -> AlgorithmAdapter:
-    registry: dict[str, AlgorithmAdapter] = {
-        "relative_linear": RelativeLinearAdapter(),
-    }
-    if name not in registry:
-        raise ValueError(
-            f"Unsupported algorithm={name!r}. Available algorithms: {sorted(registry.keys())}"
-        )
-    return registry[name]
+    return RelativeModelAdapter(name)
 
 
 def evaluate(
