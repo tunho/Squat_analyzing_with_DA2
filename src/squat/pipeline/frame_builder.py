@@ -32,6 +32,22 @@ def depth_point_from_landmark(landmark: dict, depth_map: np.ndarray) -> Point3D:
     )
 
 
+def world_point_from_landmark(landmark: dict | None) -> Point3D | None:
+    if landmark is None:
+        return None
+    x = landmark.get("x")
+    y = landmark.get("y")
+    z = landmark.get("z")
+    if x is None or y is None or z is None:
+        return None
+    return Point3D(
+        x=float(x),
+        y=float(y),
+        z=float(z),
+        vis=float(landmark.get("visibility", 0.0)),
+    )
+
+
 def build_squat_frame(
     frame_index: int,
     side: str,
@@ -41,6 +57,7 @@ def build_squat_frame(
     drawn_image: np.ndarray | None,
     store_debug_images: bool,
     store_depth_maps: bool,
+    world_landmarks: list[dict] | None = None,
 ) -> SquatFrame:
     h, w = frame_bgr.shape[:2]
     idxs = SIDE_LANDMARKS[side]
@@ -49,6 +66,14 @@ def build_squat_frame(
     shank_len_2d = float(np.linalg.norm([ankle.x - knee.x, ankle.y - knee.y]))
     thigh_len_2d = float(np.linalg.norm([knee.x - hip.x, knee.y - hip.y]))
 
+    mp_world_hip = None
+    mp_world_knee = None
+    mp_world_ankle = None
+    if world_landmarks and len(world_landmarks) > max(idxs[:3]):
+        mp_world_hip = world_point_from_landmark(world_landmarks[idxs[0]])
+        mp_world_knee = world_point_from_landmark(world_landmarks[idxs[1]])
+        mp_world_ankle = world_point_from_landmark(world_landmarks[idxs[2]])
+
     return SquatFrame(
         frame_index=frame_index,
         side=side,
@@ -56,6 +81,9 @@ def build_squat_frame(
         knee=knee,
         ankle=ankle,
         shoulder=shoulder,
+        mp_world_hip=mp_world_hip,
+        mp_world_knee=mp_world_knee,
+        mp_world_ankle=mp_world_ankle,
         shank_len_2d=shank_len_2d,
         thigh_len_2d=thigh_len_2d,
         raw_image=frame_bgr.copy() if store_debug_images else None,

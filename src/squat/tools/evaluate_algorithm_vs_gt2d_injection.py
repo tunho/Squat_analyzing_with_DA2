@@ -53,6 +53,7 @@ class EvalSample:
     gt_angle: float
     pred_angle: float
     gt2d_injected_angle: float
+    mp_world_angle: float
 
 
 @dataclass(slots=True)
@@ -61,6 +62,8 @@ class EvalSummary:
     aligned_frames: int
     pred_mae: float
     gt2d_injected_mae: float
+    mp_world_mae: float
+    mp_world_aligned_frames: int
     angle_plot_path: str
     error_plot_path: str
 
@@ -167,6 +170,23 @@ def build_aligned_gt(
     return aligned
 
 
+def compute_mp_world_angles(history_data: list[SquatFrame]) -> dict[int, float]:
+    mp_angles: dict[int, float] = {}
+    for frame in history_data:
+        if (
+            frame.mp_world_hip is None
+            or frame.mp_world_knee is None
+            or frame.mp_world_ankle is None
+        ):
+            continue
+        mp_angles[int(frame.frame_index)] = calculate_knee_angle(
+            frame.mp_world_hip,
+            frame.mp_world_knee,
+            frame.mp_world_ankle,
+        )
+    return mp_angles
+
+
 def mae(a: np.ndarray, b: np.ndarray) -> float:
     if len(a) == 0 or len(b) == 0:
         raise ValueError("Cannot compute MAE on empty arrays.")
@@ -195,14 +215,17 @@ def save_angle_plot(
     gt_angles = np.array([s.gt_angle for s in samples], dtype=float)
     pred_angles = np.array([s.pred_angle for s in samples], dtype=float)
     gt2d_angles = np.array([s.gt2d_injected_angle for s in samples], dtype=float)
+    mp_world_angles = np.array([s.mp_world_angle for s in samples], dtype=float)
 
     pred_mae = mae(pred_angles, gt_angles)
     gt2d_mae = mae(gt2d_angles, gt_angles)
+    mp_world_mae = mae(mp_world_angles, gt_angles)
 
     plt.figure(figsize=(14, 5))
     plt.plot(frame_indices, gt_angles, label="GT angle")
     plt.plot(frame_indices, pred_angles, label=f"Algorithm (MAE={pred_mae:.3f})")
     plt.plot(frame_indices, gt2d_angles, label=f"Algorithm + GT 2D (MAE={gt2d_mae:.3f})")
+    plt.plot(frame_indices, mp_world_angles, label=f"MediaPipe world 3D (MAE={mp_world_mae:.3f})")
     plt.xlabel("Frame index")
     plt.ylabel("Knee angle (deg)")
     plt.title(title)
@@ -224,17 +247,22 @@ def save_error_plot(
     gt_angles = np.array([s.gt_angle for s in samples], dtype=float)
     pred_angles = np.array([s.pred_angle for s in samples], dtype=float)
     gt2d_angles = np.array([s.gt2d_injected_angle for s in samples], dtype=float)
+    mp_world_angles = np.array([s.mp_world_angle for s in samples], dtype=float)
 
     pred_abs_err = np.abs(pred_angles - gt_angles)
     gt2d_abs_err = np.abs(gt2d_angles - gt_angles)
+    mp_world_abs_err = np.abs(mp_world_angles - gt_angles)
     pred_roll = rolling_mean(pred_abs_err, rolling_window)
     gt2d_roll = rolling_mean(gt2d_abs_err, rolling_window)
+    mp_world_roll = rolling_mean(mp_world_abs_err, rolling_window)
 
     plt.figure(figsize=(14, 5))
     plt.plot(frame_indices, pred_abs_err, label="Abs error: algorithm", alpha=0.45)
     plt.plot(frame_indices, gt2d_abs_err, label="Abs error: algorithm + GT 2D", alpha=0.45)
+    plt.plot(frame_indices, mp_world_abs_err, label="Abs error: MediaPipe world 3D", alpha=0.45)
     plt.plot(frame_indices, pred_roll, label=f"Rolling MAE algorithm (w={rolling_window})", linewidth=2)
     plt.plot(frame_indices, gt2d_roll, label=f"Rolling MAE algorithm + GT 2D (w={rolling_window})", linewidth=2)
+    plt.plot(frame_indices, mp_world_roll, label=f"Rolling MAE MediaPipe world 3D (w={rolling_window})", linewidth=2)
     plt.xlabel("Frame index")
     plt.ylabel("Absolute error (deg)")
     plt.title(title)
@@ -353,6 +381,10 @@ def evaluate(
     if not gt2d_injected_angles:
         raise RuntimeError("Failed to compute GT 2D injected angles.")
 
+    mp_world_by_frame = compute_mp_world_angles(analyzer.history_data)
+    if not mp_world_by_frame:
+        raise RuntimeError("Failed to compute MediaPipe world 3D baseline angles.")
+
     pred_by_frame = {
         int(frame.frame_index): float(angle)
         for frame, angle in zip(analyzer.history_data, pred_angles)
@@ -363,9 +395,9 @@ def evaluate(
         for item, angle in zip(aligned_gt, gt2d_injected_angles)
     }
 
-    common_frames = sorted(set(pred_by_frame) & set(gt_by_frame) & set(gt2d_by_frame))
+    common_frames = sorted(set(pred_by_frame) & set(gt_by_frame) & set(gt2d_by_frame) & set(mp_world_by_frame))
     if not common_frames:
-        raise RuntimeError("No common frames across pred / gt / gt2d-injected series.")
+        raise RuntimeError("No common frames across pred / gt / gt2d-injected / MediaPipe world 3D series.")
 
     samples: list[EvalSample] = [
         EvalSample(
@@ -373,6 +405,7 @@ def evaluate(
             gt_angle=gt_by_frame[idx],
             pred_angle=pred_by_frame[idx],
             gt2d_injected_angle=gt2d_by_frame[idx],
+            mp_world_angle=mp_world_by_frame[idx],
         )
         for idx in common_frames
     ]
@@ -380,9 +413,11 @@ def evaluate(
     gt_arr = np.array([s.gt_angle for s in samples], dtype=float)
     pred_arr = np.array([s.pred_angle for s in samples], dtype=float)
     gt2d_arr = np.array([s.gt2d_injected_angle for s in samples], dtype=float)
+    mp_world_arr = np.array([s.mp_world_angle for s in samples], dtype=float)
 
     pred_mae = mae(pred_arr, gt_arr)
     gt2d_mae = mae(gt2d_arr, gt_arr)
+    mp_world_mae = mae(mp_world_arr, gt_arr)
 
     output_dir_path = Path(output_dir)
     angle_plot_path = output_dir_path / f"{algorithm}_angle_comparison.png"
@@ -406,6 +441,8 @@ def evaluate(
         aligned_frames=len(samples),
         pred_mae=pred_mae,
         gt2d_injected_mae=gt2d_mae,
+        mp_world_mae=mp_world_mae,
+        mp_world_aligned_frames=len(samples),
         angle_plot_path=str(angle_plot_path),
         error_plot_path=str(error_plot_path),
     )
@@ -458,6 +495,8 @@ def main() -> None:
     print(f"Aligned frames            : {summary.aligned_frames}")
     print(f"Algorithm MAE             : {summary.pred_mae:.6f} deg")
     print(f"Algorithm + GT 2D MAE     : {summary.gt2d_injected_mae:.6f} deg")
+    print(f"MediaPipe world 3D MAE    : {summary.mp_world_mae:.6f} deg")
+    print(f"MP world aligned frames   : {summary.mp_world_aligned_frames}")
     print(f"Angle plot                : {summary.angle_plot_path}")
     print(f"Error plot                : {summary.error_plot_path}")
     print("=" * 80)

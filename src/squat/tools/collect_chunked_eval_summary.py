@@ -20,6 +20,7 @@ def find_summary_files(base_dir: Path) -> list[Path]:
     return sorted(base_dir.rglob('*_summary.json'))
 
 
+
 def load_rows(base_dir: Path) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for path in find_summary_files(base_dir):
@@ -46,6 +47,8 @@ def load_rows(base_dir: Path) -> list[dict[str, object]]:
                 'aligned_frames': data.get('aligned_frames'),
                 'pred_mae': data.get('pred_mae'),
                 'gt2d_injected_mae': data.get('gt2d_injected_mae'),
+                'mp_world_mae': data.get('mp_world_mae'),
+                'mp_world_aligned_frames': data.get('mp_world_aligned_frames'),
                 'summary_json': str(path),
                 'angle_plot_path': data.get('angle_plot_path'),
                 'error_plot_path': data.get('error_plot_path'),
@@ -61,7 +64,6 @@ def load_rows(base_dir: Path) -> list[dict[str, object]]:
     )
     return rows
 
-
 def write_csv(rows: list[dict[str, object]], output_csv: Path) -> None:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -73,6 +75,8 @@ def write_csv(rows: list[dict[str, object]], output_csv: Path) -> None:
         'aligned_frames',
         'pred_mae',
         'gt2d_injected_mae',
+        'mp_world_mae',
+        'mp_world_aligned_frames',
         'summary_json',
         'angle_plot_path',
         'error_plot_path',
@@ -89,15 +93,20 @@ def print_console_summary(rows: list[dict[str, object]]) -> None:
         return
 
     print(f'Total rows: {len(rows)}')
-    print('-' * 100)
+    print('-' * 130)
     for row in rows:
         pred_mae = row['pred_mae']
         gt2d_mae = row['gt2d_injected_mae']
+        mp_world_mae = row['mp_world_mae']
+
         pred_text = 'None' if pred_mae is None else f'{float(pred_mae):.6f}'
         gt2d_text = 'None' if gt2d_mae is None else f'{float(gt2d_mae):.6f}'
+        mp_world_text = 'None' if mp_world_mae is None else f'{float(mp_world_mae):.6f}'
+
         print(
             f"{row['algorithm']:>16} | {row['side']:<5} | "
-            f"{row['chunk_dir']} | pred_mae={pred_text} | gt2d_mae={gt2d_text}"
+            f"{row['chunk_dir']} | pred_mae={pred_text} | "
+            f"gt2d_mae={gt2d_text} | mp_world_mae={mp_world_text}"
         )
 
 

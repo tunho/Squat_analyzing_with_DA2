@@ -73,11 +73,21 @@ class PoseEstimator:
         """
         이미지 프레임에서 포즈 추출 (시각화용: 랜드마크 그린 이미지 반환).
         """
-        landmarks_list = self.extract_keypoints_only(image)
+        extracted = self.extract_keypoints_only(image)
+        if isinstance(extracted, tuple):
+            landmarks_list = extracted[0]
+            result_obj = extracted[1] if len(extracted) > 1 else None
+        else:
+            landmarks_list = extracted
+            result_obj = None
         image_draw = image.copy()
         if landmarks_list:
             self._draw_landmarks(image_draw, landmarks_list)
-        return type("Results", (), {"pose_landmarks": None, "_landmarks_list": landmarks_list})(), image_draw
+        return type(
+            "Results",
+            (),
+            {"pose_landmarks": None, "_landmarks_list": landmarks_list, "_pose_result": result_obj},
+        )(), image_draw
 
     def _draw_landmarks(self, image, landmarks_list):
         """랜드마크를 이미지에 그리기 (간단한 원 + 선)."""
