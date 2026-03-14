@@ -45,3 +45,10 @@ class DepthAnythingEstimator:
             depth_map *= 1000.0
 
         return depth_map
+
+
+@dataclass(slots=True)
+class NullDepthEstimator:
+    def estimate(self, frame_bgr: np.ndarray) -> np.ndarray:
+        h, w = frame_bgr.shape[:2]
+        return np.zeros((h, w), dtype=np.float32)

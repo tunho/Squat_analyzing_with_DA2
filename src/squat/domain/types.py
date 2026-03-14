@@ -21,6 +21,9 @@ class SquatFrame:
     knee: Point3D
     ankle: Point3D
     shoulder: Optional[Point3D] = None
+    mp_world_hip: Optional[Point3D] = None
+    mp_world_knee: Optional[Point3D] = None
+    mp_world_ankle: Optional[Point3D] = None
     shank_len_2d: float = 0.0
     thigh_len_2d: float = 0.0
     raw_image: Optional[np.ndarray] = None
