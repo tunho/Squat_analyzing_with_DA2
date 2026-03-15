@@ -65,6 +65,7 @@ def build_squat_frame(
 
     shank_len_2d = float(np.linalg.norm([ankle.x - knee.x, ankle.y - knee.y]))
     thigh_len_2d = float(np.linalg.norm([knee.x - hip.x, knee.y - hip.y]))
+    leg_len_2d = thigh_len_2d + shank_len_2d
 
     mp_world_hip = None
     mp_world_knee = None
@@ -86,6 +87,7 @@ def build_squat_frame(
         mp_world_ankle=mp_world_ankle,
         shank_len_2d=shank_len_2d,
         thigh_len_2d=thigh_len_2d,
+        leg_len_2d=leg_len_2d,
         raw_image=frame_bgr.copy() if store_debug_images else None,
         drawn_image=drawn_image.copy() if (store_debug_images and drawn_image is not None) else None,
         depth_map_half=cv2.resize(depth_map, (w // 2, h // 2)).astype(np.float16) if store_depth_maps else None,

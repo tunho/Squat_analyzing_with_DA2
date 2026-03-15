@@ -26,6 +26,7 @@ class SquatFrame:
     mp_world_ankle: Optional[Point3D] = None
     shank_len_2d: float = 0.0
     thigh_len_2d: float = 0.0
+    leg_len_2d: float = 0.0
     raw_image: Optional[np.ndarray] = None
     drawn_image: Optional[np.ndarray] = None
     depth_map_half: Optional[np.ndarray] = None

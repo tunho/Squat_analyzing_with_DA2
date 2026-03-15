@@ -46,3 +46,5 @@ OUTPUT_CONFIG = {
     'DRAW_SCALE': 0.8,            # Scale factor for multiview drawing
     'DEFAULT_OUTPUT_FILENAME': "output_squat_analysis.mp4"
 }
+
+

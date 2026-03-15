@@ -19,9 +19,14 @@ except ImportError:
 
 
 class RelativeModelSquatAnalyzer(BaseSquatAnalyzer):
-    def __init__(self, model: str = "relative_linear", **kwargs: Any) -> None:
+    def __init__(
+        self,
+        model: str = "relative_linear",
+        calibration_overrides: dict[str, float] | None = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
-        self.model = get_relative_model(model)
+        self.model = get_relative_model(model, overrides=calibration_overrides)
 
     def finalize_analysis(self):
         if not self.history_data:

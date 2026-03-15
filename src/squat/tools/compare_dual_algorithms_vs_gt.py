@@ -85,11 +85,12 @@ def evaluate_series(
     max_frames: int | None = None,
     start_frame: int | None = None,
     end_frame: int | None = None,
+    calibration_overrides: dict[str, float] | None = None,
 ) -> SeriesResult:
     gt_joints = load_gt_joints(gt_npy_path)
     validate_joint_indices(gt_joints, hip_idx, knee_idx, ankle_idx)
 
-    adapter = RelativeModelAdapter(algorithm)
+    adapter = RelativeModelAdapter(algorithm, calibration_overrides=calibration_overrides)
     analyzer = adapter.create_analyzer()
     analyzer.process_video(
         video_path=video_path,
@@ -106,7 +107,7 @@ def evaluate_series(
     if not analyzer.history_data:
         raise RuntimeError(f"{algorithm}: no valid frames were accumulated.")
 
-    pred_angles = adapter.finalize_pred_angles(analyzer)
+    pred_angles, _pred_params = adapter.finalize_pred_angles(analyzer)
     aligned_gt = build_aligned_gt(
         history_data=analyzer.history_data,
         gt_joints=gt_joints,
@@ -117,7 +118,7 @@ def evaluate_series(
     if not aligned_gt:
         raise RuntimeError(f"{algorithm}: no GT-aligned frames found.")
 
-    gt2d_injected_angles = adapter.compute_gt2d_injected_angles(analyzer, aligned_gt)
+    gt2d_injected_angles, _gt2d_params = adapter.compute_gt2d_injected_angles(analyzer, aligned_gt)
     if not gt2d_injected_angles:
         raise RuntimeError(f"{algorithm}: failed to compute GT 2D injected angles.")
 
@@ -259,6 +260,7 @@ def compare_algorithms(
     start_frame: int | None = None,
     end_frame: int | None = None,
     rolling_window: int = 15,
+    calibration_overrides: dict[str, float] | None = None,
 ) -> DualComparisonSummary:
     primary = evaluate_series(
         algorithm=primary_algorithm,
@@ -271,6 +273,7 @@ def compare_algorithms(
         max_frames=max_frames,
         start_frame=start_frame,
         end_frame=end_frame,
+        calibration_overrides=calibration_overrides,
     )
     secondary = evaluate_series(
         algorithm=secondary_algorithm,
@@ -283,6 +286,7 @@ def compare_algorithms(
         max_frames=max_frames,
         start_frame=start_frame,
         end_frame=end_frame,
+        calibration_overrides=calibration_overrides,
     )
 
     frames, gt, mp_world, primary_pred, secondary_pred, primary_gt2d, secondary_gt2d = intersect_series(primary, secondary)
@@ -357,8 +361,23 @@ def main() -> None:
     parser.add_argument("--start-frame", type=int, default=None)
     parser.add_argument("--end-frame", type=int, default=None)
     parser.add_argument("--rolling-window", type=int, default=15)
+    parser.add_argument("--a", type=float, default=None)
+    parser.add_argument("--b", type=float, default=None)
+    parser.add_argument("--c", type=float, default=None)
+    parser.add_argument("--target-leg-len", type=float, default=None)
+    parser.add_argument("--min-visibility", type=float, default=None)
+    parser.add_argument("--top-percent", type=float, default=None)
+    parser.add_argument("--trim-low", type=float, default=None)
+    parser.add_argument("--trim-high", type=float, default=None)
     parser.add_argument("--output-dir", default="outputs/dual_algorithm_comparison")
     args = parser.parse_args()
+
+    overrides = {
+        "min_visibility": args.min_visibility,
+        "top_percent": args.top_percent,
+        "trim_percentile_low": args.trim_low,
+        "trim_percentile_high": args.trim_high,
+    }
 
     summary = compare_algorithms(
         primary_algorithm=args.primary_algorithm,
@@ -374,6 +393,7 @@ def main() -> None:
         start_frame=args.start_frame,
         end_frame=args.end_frame,
         rolling_window=args.rolling_window,
+        calibration_overrides=overrides,
     )
 
     print("=" * 80)

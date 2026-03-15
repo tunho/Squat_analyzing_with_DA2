@@ -19,6 +19,7 @@ from squat.calibration.relative_model import (
     extract_history_features,
     get_frame_raw_dz,
 )
+
 from squat.domain.types import Point3D, SquatFrame
 
 
@@ -56,16 +57,8 @@ class RelativeLinearModel(RelativeDepthModel):
 
         raw_dz_thigh, raw_dz_shank = get_frame_raw_dz(frame, z_source=self.z_source)
 
-        thigh_dz = predict_relative_dz(
-            raw_dz=raw_dz_thigh,
-            a=params.thigh_a,
-            b=params.thigh_b,
-        )
-        shank_dz = predict_relative_dz(
-            raw_dz=raw_dz_shank,
-            a=params.shank_a,
-            b=params.shank_b,
-        )
+        thigh_dz = predict_relative_dz(raw_dz=raw_dz_thigh, a=params.thigh_a, b=params.thigh_b)
+        shank_dz = predict_relative_dz(raw_dz=raw_dz_shank, a=params.shank_a, b=params.shank_b)
 
         knee = Point3D(frame.knee.x, frame.knee.y, 0.0)
         hip = Point3D(frame.hip.x, frame.hip.y, thigh_dz)
@@ -130,6 +123,9 @@ class RelativeAddModel(RelativeDepthModel):
         return hip, knee, ankle
 
 
+
+
+
 MODEL_REGISTRY: dict[str, RelativeDepthModel] = {
     "relative_linear": RelativeLinearModel(),
     "relative_add": RelativeAddModel(),
@@ -138,10 +134,12 @@ MODEL_REGISTRY: dict[str, RelativeDepthModel] = {
 }
 
 
-def get_relative_model(name: str) -> RelativeDepthModel:
+def get_relative_model(name: str, overrides: dict[str, float] | None = None) -> RelativeDepthModel:
     if name not in MODEL_REGISTRY:
         raise ValueError(f"Unsupported relative model={name!r}. Available: {sorted(MODEL_REGISTRY)}")
-    return MODEL_REGISTRY[name]
+    model = MODEL_REGISTRY[name]
+
+    return model
 
 
 def fit_model_from_history(
