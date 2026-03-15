@@ -8,8 +8,7 @@ from squat.geometry.angles import calculate_knee_angle
 
 
 class RelativeCalibrationParams(Protocol):
-    ref_thigh_len: float
-    ref_shank_len: float
+    pass
 
 
 class RelativeDepthModel(Protocol):
