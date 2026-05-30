@@ -20,3 +20,8 @@ scripts/*
 !scripts/paper_train_loso.py
 !scripts/paper_evaluate.py
 !scripts/paper_make_tables.py
+!scripts/paper_ablation.py
+!scripts/paper_analyze_failure.py
+!scripts/paper_view_models.py
+!scripts/paper_extract_fit3d.py
+!scripts/generate_paper_plot.py
