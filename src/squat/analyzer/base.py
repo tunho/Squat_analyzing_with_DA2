@@ -95,14 +95,21 @@ class BaseSquatAnalyzer(ABC):
                 self.side = processed.resolved_side
 
                 output_frame = processed.output_frame
-                if processed.squat_frame is not None and processed.raw_angle is not None:
-                    self.counter.update(processed.raw_angle)
-                    output_frame = draw_dashboard(
-                        output_frame,
-                        self.counter.count,
-                        self.counter.state,
-                        processed.raw_angle,
-                    )
+                if processed.squat_frame is not None:
+                    frame_angle = self.compute_frame_angle(processed.squat_frame)
+                    if frame_angle is None:
+                        frame_angle = processed.raw_angle
+
+                    if frame_angle is not None:
+                        self.counter.update(frame_angle)
+                        output_frame = draw_dashboard(
+                            output_frame,
+                            self.counter.count,
+                            self.counter.state,
+                            frame_angle,
+                        )
+
+
                     processed.squat_frame.drawn_image = output_frame.copy() if store_debug_images else None
                     self.history_data.append(processed.squat_frame)
 
@@ -149,3 +156,6 @@ class BaseSquatAnalyzer(ABC):
             store_depth_maps=store_depth_maps,
         )
         return self.finalize_analysis()
+    
+    def compute_frame_angle(self, squat_frame: SquatFrame) -> float | None:
+        return None

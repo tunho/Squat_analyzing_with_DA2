@@ -18,7 +18,15 @@ def choose_side(landmarks: list[dict]) -> str:
     return "left" if l_vis >= r_vis else "right"
 
 
-def depth_point_from_landmark(landmark: dict, depth_map: np.ndarray) -> Point3D:
+def depth_point_from_landmark(landmark: dict, depth_map: np.ndarray | None, frame_w: int, frame_h: int) -> Point3D:
+    if depth_map is None:
+        # DepthMap이 없는 경우 (World 좌표계 위주 분석 시)
+        return Point3D(
+            x=landmark["x"] * frame_w,
+            y=landmark["y"] * frame_h,
+            z=0.0,
+            vis=float(landmark.get("visibility", 0.0)),
+        )
     h, w = depth_map.shape
     px = int(landmark["x"] * w)
     py = int(landmark["y"] * h)
@@ -52,7 +60,7 @@ def build_squat_frame(
     frame_index: int,
     side: str,
     landmarks: list[dict],
-    depth_map: np.ndarray,
+    depth_map: np.ndarray | None,
     frame_bgr: np.ndarray,
     drawn_image: np.ndarray | None,
     store_debug_images: bool,
@@ -61,7 +69,8 @@ def build_squat_frame(
 ) -> SquatFrame:
     h, w = frame_bgr.shape[:2]
     idxs = SIDE_LANDMARKS[side]
-    hip, knee, ankle, shoulder = [depth_point_from_landmark(landmarks[i], depth_map) for i in idxs]
+    # depth_map이 None일 때를 대비하여 frame_w, frame_h 추가 전달
+    hip, knee, ankle, shoulder = [depth_point_from_landmark(landmarks[i], depth_map, w, h) for i in idxs]
 
     shank_len_2d = float(np.linalg.norm([ankle.x - knee.x, ankle.y - knee.y]))
     thigh_len_2d = float(np.linalg.norm([knee.x - hip.x, knee.y - hip.y]))
@@ -70,10 +79,16 @@ def build_squat_frame(
     mp_world_hip = None
     mp_world_knee = None
     mp_world_ankle = None
-    if world_landmarks and len(world_landmarks) > max(idxs[:3]):
+    mp_world_shoulder = None
+    if world_landmarks and len(world_landmarks) > max(idxs):
         mp_world_hip = world_point_from_landmark(world_landmarks[idxs[0]])
         mp_world_knee = world_point_from_landmark(world_landmarks[idxs[1]])
         mp_world_ankle = world_point_from_landmark(world_landmarks[idxs[2]])
+        mp_world_shoulder = world_point_from_landmark(world_landmarks[idxs[3]])
+
+    depth_map_half = None
+    if store_depth_maps and depth_map is not None:
+        depth_map_half = cv2.resize(depth_map, (w // 2, h // 2)).astype(np.float16)
 
     return SquatFrame(
         frame_index=frame_index,
@@ -85,12 +100,13 @@ def build_squat_frame(
         mp_world_hip=mp_world_hip,
         mp_world_knee=mp_world_knee,
         mp_world_ankle=mp_world_ankle,
+        mp_world_shoulder=mp_world_shoulder,
         shank_len_2d=shank_len_2d,
         thigh_len_2d=thigh_len_2d,
         leg_len_2d=leg_len_2d,
         raw_image=frame_bgr.copy() if store_debug_images else None,
         drawn_image=drawn_image.copy() if (store_debug_images and drawn_image is not None) else None,
-        depth_map_half=cv2.resize(depth_map, (w // 2, h // 2)).astype(np.float16) if store_depth_maps else None,
+        depth_map_half=depth_map_half,
         orig_w=w,
         orig_h=h,
     )
