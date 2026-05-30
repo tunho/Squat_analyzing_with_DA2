@@ -2,20 +2,8 @@
 
 from __future__ import annotations
 
-from squat.analyzer.base import BaseSquatAnalyzer
-from squat.geometry.angles import calculate_knee_angle
+from squat.analyzer.knee_base_world import BaseWorldKneeAnalyzer
 
 
-class MPWorldRawSquatAnalyzer(BaseSquatAnalyzer):
-    def finalize_analysis(self):
-        final_angles = []
-        for frame in self.history_data:
-            if frame.mp_world_hip is None or frame.mp_world_knee is None or frame.mp_world_ankle is None:
-                continue
-            angle = calculate_knee_angle(
-                frame.mp_world_hip,
-                frame.mp_world_knee,
-                frame.mp_world_ankle,
-            )
-            final_angles.append(angle)
-        return self.counter.count, final_angles, None
+class MPWorldRawSquatAnalyzer(BaseWorldKneeAnalyzer):
+    pass

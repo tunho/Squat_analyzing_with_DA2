@@ -1,0 +1,24 @@
+{
+  "model": "../outputs/paper/v6_world_shoulder_enhanced_loso/v6_single_residual_model.pkl",
+  "features": "../experiments/paper/features_fit3d.csv",
+  "overall": {
+    "set": "all",
+    "frames": 6994,
+    "mae_raw": 20.34530590086347,
+    "mae_corrected": 13.319785220248706,
+    "rmse_raw": 25.341152206246356,
+    "rmse_corrected": 15.918553521492958,
+    "improvement_pct": 34.53140844796339
+  },
+  "deep_flexion_threshold": 110.0,
+  "deep_flexion_frames": 2712,
+  "deep_flexion": {
+    "set": "deep_flexion",
+    "frames": 2712,
+    "mae_raw": 30.13620019949592,
+    "mae_corrected": 12.116381116969409,
+    "rmse_raw": 34.713217082618236,
+    "rmse_corrected": 15.210226604674963,
+    "improvement_pct": 59.794595746108435
+  }
+}
