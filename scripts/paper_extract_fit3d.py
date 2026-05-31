@@ -76,6 +76,7 @@ def extract_feature_rows(
     subject_id: str,
     cam_id: str,
     view_type: str,
+    calib_frames: int = 0,
 ) -> list[dict]:
     if not frames_data:
         return []
@@ -84,9 +85,11 @@ def extract_feature_rows(
     y_min, y_max = min(hips_y), max(hips_y)
     y_range = max(y_max - y_min, 1e-6)
 
+    # causal 정규화: 초기 calib_frames 로 med_total 추정. 0이면 전체중앙값(오프라인).
+    calib = frames_data[:calib_frames] if calib_frames and calib_frames > 0 else frames_data
     med_total = max(
-        float(np.median([f["thigh_len"] for f in frames_data])
-              + np.median([f["shank_len"] for f in frames_data])),
+        float(np.median([f["thigh_len"] for f in calib])
+              + np.median([f["shank_len"] for f in calib])),
         1e-6,
     )
 
@@ -147,6 +150,7 @@ def extract_video(
     view_type: str,
     start_frame: int,
     end_frame: int,
+    calib_frames: int = 0,
 ) -> pd.DataFrame:
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -209,7 +213,7 @@ def extract_video(
     finally:
         cap.release()
 
-    rows = extract_feature_rows(frames_data, gt_joints, subject_id, cam_id, view_type)
+    rows = extract_feature_rows(frames_data, gt_joints, subject_id, cam_id, view_type, calib_frames=calib_frames)
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
@@ -225,6 +229,8 @@ def main() -> None:
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--subjects", nargs="*", default=SUBJECTS)
+    parser.add_argument("--calib-frames", type=int, default=0,
+                        help="causal 정규화: 초기 N프레임으로 med_total 추정. 0=시퀀스 전체중앙값(오프라인)")
     args = parser.parse_args()
 
     all_frames: list[pd.DataFrame] = []
@@ -258,7 +264,7 @@ def main() -> None:
                 df = extract_video(
                     pose_estimator, video_path, gt_joints,
                     subject_id, cam_label, view_type,
-                    start_frame, end_frame,
+                    start_frame, end_frame, calib_frames=args.calib_frames,
                 )
             finally:
                 pose_estimator.close()

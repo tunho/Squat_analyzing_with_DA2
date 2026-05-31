@@ -79,6 +79,14 @@ ENHANCED_SAFE_FEATURE_COLS = [
 FEATURE_SETS = {
     "v6": FEATURE_COLS,
     "enhanced_safe": ENHANCED_SAFE_FEATURE_COLS,
+    # enhanced_safe 에서 view_is_side, thigh_len_dev, shank_len_dev 제거 (36개)
+    "enhanced_lean": [c for c in ENHANCED_SAFE_FEATURE_COLS
+                      if c not in {"view_is_side", "thigh_len_dev", "shank_len_dev"}],
+    # enhanced_lean 에서 시퀀스통계 의존(leg_ratio, hip_depth_norm)까지 제거 (34개)
+    # → 좌표 정규화(med_total, 사람당 상수)만 남아 사실상 실시간형
+    "enhanced_causal": [c for c in ENHANCED_SAFE_FEATURE_COLS
+                        if c not in {"view_is_side", "thigh_len_dev", "shank_len_dev",
+                                     "leg_ratio", "hip_depth_norm"}],
     "angle_only": [
         "mp_knee_angle",
     ],

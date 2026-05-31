@@ -55,7 +55,8 @@ def load_gt_angles(gt_path: Path, joint_indices: tuple[int, int, int]) -> dict[i
     return out
 
 
-def extract_feature_rows(frames: list, video_name: str, subject_id: str) -> list[dict]:
+def extract_feature_rows(frames: list, video_name: str, subject_id: str, med_total: float | None = None) -> list[dict]:
+    # med_total override(causal 캘리브레이션 정규화)용. None이면 기존대로 시퀀스 전체 중앙값 사용(하위호환).
     if not frames:
         return []
 
@@ -78,7 +79,8 @@ def extract_feature_rows(frames: list, video_name: str, subject_id: str) -> list
     if not thigh_lens or not shank_lens:
         return []
 
-    med_total = float(np.median(thigh_lens) + np.median(shank_lens))
+    if med_total is None:
+        med_total = float(np.median(thigh_lens) + np.median(shank_lens))
     med_total = max(med_total, 1e-6)
     view_type = "side" if "Camera18" in video_name else "front"
 
@@ -120,12 +122,27 @@ def extract_feature_rows(frames: list, video_name: str, subject_id: str) -> list
     return rows
 
 
+def calib_med_total(frames: list, k: int) -> float | None:
+    """초기 k프레임의 분절길이로 med_total 추정(causal 정규화). k<=0이면 None."""
+    if not k or k <= 0:
+        return None
+    th, sh = [], []
+    for f in frames[:k]:
+        if f.mp_world_hip and f.mp_world_knee and f.mp_world_ankle:
+            hip = point_to_np(f.mp_world_hip); knee = point_to_np(f.mp_world_knee); ank = point_to_np(f.mp_world_ankle)
+            th.append(float(np.linalg.norm(hip - knee))); sh.append(float(np.linalg.norm(ank - knee)))
+    if not th or not sh:
+        return None
+    return max(float(np.median(th) + np.median(sh)), 1e-6)
+
+
 def extract_video_features(
     pose_estimator,
     video_path: Path,
     gt_angles: dict[int, float],
     subject_id: str,
     timestamp_step_ms: int,
+    calib_frames: int = 0,
 ) -> pd.DataFrame:
     if not gt_angles:
         return pd.DataFrame()
@@ -170,7 +187,7 @@ def extract_video_features(
     finally:
         cap.release()
 
-    df = pd.DataFrame(extract_feature_rows(frames, video_path.name, subject_id))
+    df = pd.DataFrame(extract_feature_rows(frames, video_path.name, subject_id, med_total=calib_med_total(frames, calib_frames)))
     if df.empty:
         return df
     df["gt_angle"] = df["frame_index"].map(gt_angles)
@@ -189,6 +206,8 @@ def main() -> None:
     parser.add_argument("--subjects", nargs="*", default=None)
     parser.add_argument("--view-suffixes", nargs="*", default=DEFAULT_VIEW_SUFFIXES)
     parser.add_argument("--timestamp-step-ms", type=int, default=33)
+    parser.add_argument("--calib-frames", type=int, default=0,
+                        help="causal 정규화: 초기 N프레임으로 med_total 추정. 0=시퀀스 전체중앙값(오프라인)")
     args = parser.parse_args()
 
     video_dir = args.dataset / "videos" / args.exercise
@@ -211,7 +230,7 @@ def main() -> None:
                 continue
             pose_estimator = PoseEstimator(static_image_mode=False)
             try:
-                df = extract_video_features(pose_estimator, video_path, gt_angles, subject_id, args.timestamp_step_ms)
+                df = extract_video_features(pose_estimator, video_path, gt_angles, subject_id, args.timestamp_step_ms, calib_frames=args.calib_frames)
             finally:
                 pose_estimator.close()
             if not df.empty:
