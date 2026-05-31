@@ -21,6 +21,7 @@ import json
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from squat.domain.types import Point3D
@@ -75,6 +76,7 @@ def extract_camera(
     camera: str,
     bounds: tuple[int, int] | None,
     timestamp_step_ms: int,
+    calib_frames: int = 0,
 ) -> pd.DataFrame:
     import cv2
 
@@ -117,7 +119,21 @@ def extract_camera(
     finally:
         cap.release()
 
-    df = pd.DataFrame(extract_feature_rows(frames, avi_path.name, subject_id))
+    # causal 정규화: 초기 calib_frames(기립 구간)로 분절길이 1회 추정 → med_total 고정
+    med_total = None
+    if calib_frames and calib_frames > 0:
+        th, sh = [], []
+        for f in frames[:calib_frames]:
+            if f.mp_world_hip and f.mp_world_knee and f.mp_world_ankle:
+                hip = np.array([f.mp_world_hip.x, f.mp_world_hip.y, f.mp_world_hip.z])
+                knee = np.array([f.mp_world_knee.x, f.mp_world_knee.y, f.mp_world_knee.z])
+                ank = np.array([f.mp_world_ankle.x, f.mp_world_ankle.y, f.mp_world_ankle.z])
+                th.append(float(np.linalg.norm(hip - knee)))
+                sh.append(float(np.linalg.norm(ank - knee)))
+        if th and sh:
+            med_total = max(float(np.median(th) + np.median(sh)), 1e-6)
+
+    df = pd.DataFrame(extract_feature_rows(frames, avi_path.name, subject_id, med_total=med_total))
     if df.empty:
         return df
     df["view_type"] = view_type           # 카메라 인덱스 기반으로 덮어씀
@@ -143,6 +159,8 @@ def main() -> None:
     p.add_argument("--full-clip", action="store_true", help="annotation 구간 무시하고 전체 프레임 사용")
     p.add_argument("--max-sessions", type=int, default=None)
     p.add_argument("--timestamp-step-ms", type=int, default=33)
+    p.add_argument("--calib-frames", type=int, default=0,
+                   help="causal 정규화: 초기 N프레임(기립)으로 med_total 추정. 0=시퀀스 전체중앙값(오프라인)")
     args = p.parse_args()
 
     leg = GT_LEFT_LEG if args.leg == "left" else GT_RIGHT_LEG
@@ -192,6 +210,7 @@ def main() -> None:
                 df = extract_camera(
                     pose, avis[0], gt_angles, subject_id, view_type,
                     cam_dir.name, bounds, args.timestamp_step_ms,
+                    calib_frames=args.calib_frames,
                 )
             finally:
                 pose.close()
