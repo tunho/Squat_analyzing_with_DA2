@@ -25,3 +25,13 @@ scripts/*
 !scripts/paper_view_models.py
 !scripts/paper_extract_fit3d.py
 !scripts/generate_paper_plot.py
+!scripts/paper_extract_aihub.py
+!scripts/paper_compare_regressors.py
+
+# 데이터셋 파생 feature CSV(대용량·라이선스) — 원격에 올리지 않음 (추출기로 재생성)
+experiments/paper/features_aihub_squat.csv
+experiments/paper/features_aihub_test.csv
+experiments/paper/features_pooled_aihub_rehab.csv
+experiments/paper/features_pooled_all.csv
+# 프레임별 예측(피처 포함, 대용량) — 집계물(metrics/summary)만 추적
+experiments/paper/*/predictions.csv

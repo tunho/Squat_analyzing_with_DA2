@@ -1,0 +1,24 @@
+{
+  "model": "outputs/paper/v6_world_shoulder_enhanced_loso/v6_single_residual_model.pkl",
+  "features": "experiments/paper/features_aihub_test.csv",
+  "overall": {
+    "set": "all",
+    "frames": 885,
+    "mae_raw": 21.927110209387727,
+    "mae_corrected": 20.493602694171432,
+    "rmse_raw": 33.50838287986944,
+    "rmse_corrected": 31.042345707131798,
+    "improvement_pct": 6.537603457671147
+  },
+  "deep_flexion_threshold": 110.0,
+  "deep_flexion_frames": 411,
+  "deep_flexion": {
+    "set": "deep_flexion",
+    "frames": 411,
+    "mae_raw": 27.86398768746255,
+    "mae_corrected": 17.800837440340384,
+    "rmse_raw": 38.96262852031135,
+    "rmse_corrected": 25.294588664149256,
+    "improvement_pct": 36.11525514580276
+  }
+}

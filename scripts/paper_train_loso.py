@@ -37,7 +37,11 @@ def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6") -> pd.DataFrame:
     if feature_set not in FEATURE_SETS:
         raise ValueError(f"Unknown feature set '{feature_set}'. Available: {sorted(FEATURE_SETS)}")
 
-    df = df.sort_values(["subject_id", "view_type", "frame_index"]).copy()
+    # 시계열 시퀀스 단위: AIHub 처럼 한 view_type 에 여러 camera 가 묶이면
+    # lag/velocity 가 카메라 경계를 넘지 않도록 camera 를 그룹키에 포함한다.
+    # (REHAB/FiT3D 는 camera 컬럼이 없어 기존 동작과 동일)
+    seq_cols = ["subject_id", "view_type"] + (["camera"] if "camera" in df.columns else [])
+    df = df.sort_values(seq_cols + ["frame_index"]).copy()
 
     df["thigh_len"] = np.sqrt(df["k_x"] ** 2 + df["k_y"] ** 2 + df["k_z"] ** 2)
     df["shank_len"] = np.sqrt(
@@ -49,7 +53,7 @@ def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6") -> pd.DataFrame:
     subject_ratio["leg_ratio"] = subject_ratio["thigh_len"] / (subject_ratio["shank_len"] + 1e-6)
     df["leg_ratio"] = df["subject_id"].map(subject_ratio["leg_ratio"])
 
-    group_cols = ["subject_id", "view_type"]
+    group_cols = seq_cols
     df["angle_velocity"] = df.groupby(group_cols)["mp_knee_angle"].diff().fillna(0.0)
     df["angle_vel_smooth"] = (
         df.groupby(group_cols)["angle_velocity"]
