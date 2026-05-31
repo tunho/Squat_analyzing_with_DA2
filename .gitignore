@@ -33,5 +33,6 @@ experiments/paper/features_aihub_squat.csv
 experiments/paper/features_aihub_test.csv
 experiments/paper/features_pooled_aihub_rehab.csv
 experiments/paper/features_pooled_all.csv
+experiments/paper/features_*_causal.csv
 # 프레임별 예측(피처 포함, 대용량) — 집계물(metrics/summary)만 추적
 experiments/paper/*/predictions.csv
