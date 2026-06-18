@@ -27,6 +27,20 @@ scripts/*
 !scripts/generate_paper_plot.py
 !scripts/paper_extract_aihub.py
 !scripts/paper_compare_regressors.py
+# 다도메인(AIHub·SUMediPose) 수집·전이 실험 파이프라인
+!scripts/aihub_extract_raw_dump.py
+!scripts/aihub_features_from_dump.py
+!scripts/sumedipose_dump.py
+!scripts/sumedipose_extract.py
+!scripts/download_sumedipose_a3.py
+!scripts/lodo_eval.py
+!scripts/fewshot_recovery.py
+!scripts/baselines_loso.py
+!scripts/causal_loso_capped.py
+!scripts/camera_geom.py
+!scripts/clinical_downstream.py
+!scripts/stats_ci.py
+!scripts/make_figures.py
 
 # 데이터셋 파생 feature CSV(대용량·라이선스) — 원격에 올리지 않음 (추출기로 재생성)
 experiments/paper/features_aihub_squat.csv
@@ -34,5 +48,12 @@ experiments/paper/features_aihub_test.csv
 experiments/paper/features_pooled_aihub_rehab.csv
 experiments/paper/features_pooled_all.csv
 experiments/paper/features_*_causal.csv
-# 프레임별 예측(피처 포함, 대용량) — 집계물(metrics/summary)만 추적
-experiments/paper/*/predictions.csv
+experiments/paper/features_*_offstd.csv
+experiments/paper/features_pooled*.csv
+# 대용량 원본 덤프 / 추출 데이터 (재생성 가능, 라이선스) — 원격에 올리지 않음
+experiments/paper/aihub_raw_dump/
+experiments/paper/sumedipose_raw_dump/
+experiments/paper/_aihub_lists/
+# 프레임별 예측(피처 포함, 대용량) — 중첩 경로 포함, 집계물(metrics/summary)만 추적
+experiments/paper/**/predictions.csv
+experiments/paper/**/*_predictions.csv

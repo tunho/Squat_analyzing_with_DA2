@@ -1,0 +1,24 @@
+{
+  "model": "../outputs/paper/sumedipose_offstd_loso/v6_single_residual_model.pkl",
+  "features": "../experiments/paper/features_ex6_offstd.csv",
+  "overall": {
+    "set": "all",
+    "frames": 26964,
+    "mae_raw": 12.290978108985664,
+    "mae_corrected": 10.340010215341795,
+    "rmse_raw": 16.059033374459336,
+    "rmse_corrected": 13.68249998215767,
+    "improvement_pct": 15.873170355885339
+  },
+  "deep_flexion_threshold": 110.0,
+  "deep_flexion_frames": 7204,
+  "deep_flexion": {
+    "set": "deep_flexion",
+    "frames": 7204,
+    "mae_raw": 19.70172774612456,
+    "mae_corrected": 14.861584176894898,
+    "rmse_raw": 23.788885228733033,
+    "rmse_corrected": 18.3071085852,
+    "improvement_pct": 24.56710209175308
+  }
+}

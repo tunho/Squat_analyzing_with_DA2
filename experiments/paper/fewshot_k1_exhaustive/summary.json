@@ -1,0 +1,46 @@
+[
+  {
+    "held_out": "AIHub",
+    "k": 1,
+    "n_draws": 46,
+    "n_test_subj": 45,
+    "pooled_mean": 13.005380252326836,
+    "pooled_std": 2.8329813945793005,
+    "subjmean_mean": 13.014263315760722,
+    "deep_mean": 33.015334001958074,
+    "deep_std": 3.9407327405157084
+  },
+  {
+    "held_out": "SUMediPose",
+    "k": 1,
+    "n_draws": 26,
+    "n_test_subj": 25,
+    "pooled_mean": 23.946425628529898,
+    "pooled_std": 1.2812662198532931,
+    "subjmean_mean": 24.25587404663325,
+    "deep_mean": 20.657714916338072,
+    "deep_std": 2.5162887253501505
+  },
+  {
+    "held_out": "REHAB",
+    "k": 1,
+    "n_draws": 9,
+    "n_test_subj": 8,
+    "pooled_mean": 15.914429704728812,
+    "pooled_std": 3.7205412836427234,
+    "subjmean_mean": 16.53126109392596,
+    "deep_mean": 23.008043441099332,
+    "deep_std": 5.952478198454651
+  },
+  {
+    "held_out": "FiT3D",
+    "k": 1,
+    "n_draws": 3,
+    "n_test_subj": 2,
+    "pooled_mean": 29.667512103884224,
+    "pooled_std": 5.915176457264581,
+    "subjmean_mean": 30.516853510441447,
+    "deep_mean": 43.618098887136476,
+    "deep_std": 9.143695130152114
+  }
+]

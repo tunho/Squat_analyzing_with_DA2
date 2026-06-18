@@ -1,0 +1,54 @@
+{
+  "protocol": "leave-one-dataset-out",
+  "feature_set": "enhanced_safe",
+  "n_estimators": 300,
+  "max_depth": 15,
+  "folds": [
+    {
+      "held_out": "AIHub",
+      "n_subjects": 46,
+      "frames": 137264,
+      "mae_raw": 14.305850606470948,
+      "mae_corrected": 15.897133344121576,
+      "improvement_pooled_pct": -11.123300399424311,
+      "improvement_subjmean_pct": -11.371687541155053,
+      "subjects_improved": "5/46",
+      "deep_improvement_pct": 28.034068306428573
+    },
+    {
+      "held_out": "SUMediPose",
+      "n_subjects": 26,
+      "frames": 77692,
+      "mae_raw": 12.647948669143522,
+      "mae_corrected": 9.959577981834641,
+      "improvement_pooled_pct": 21.255388977562387,
+      "improvement_subjmean_pct": 21.529152836807647,
+      "subjects_improved": "26/26",
+      "deep_improvement_pct": 16.617650444836084
+    },
+    {
+      "held_out": "REHAB",
+      "n_subjects": 9,
+      "frames": 26964,
+      "mae_raw": 12.290978108985664,
+      "mae_corrected": 12.037034746697792,
+      "improvement_pooled_pct": 2.066095635645301,
+      "improvement_subjmean_pct": 2.514910440830992,
+      "subjects_improved": "5/9",
+      "deep_improvement_pct": 0.0267800875405954
+    },
+    {
+      "held_out": "FiT3D",
+      "n_subjects": 3,
+      "frames": 6976,
+      "mae_raw": 20.37211028425069,
+      "mae_corrected": 15.528870666607911,
+      "improvement_pooled_pct": 23.77387295702498,
+      "improvement_subjmean_pct": 25.15151509557606,
+      "subjects_improved": "3/3",
+      "deep_improvement_pct": 34.78582709289376
+    }
+  ],
+  "mean_improvement_pooled_pct": 8.993014292702089,
+  "mean_improvement_subjmean_pct": 9.455972708014912
+}
