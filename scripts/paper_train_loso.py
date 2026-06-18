@@ -29,7 +29,8 @@ def _angle_between_rows(prev: pd.DataFrame, curr: pd.DataFrame, prefix: str) -> 
     return pd.Series(np.degrees(np.arccos(cosine)), index=curr.index)
 
 
-def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6") -> pd.DataFrame:
+def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6",
+                    time_aware: bool = False, fps: float = 30.0) -> pd.DataFrame:
     required = {"subject_id", "view_type", "frame_index", "gt_angle", "mp_knee_angle"}
     missing = sorted(required - set(df.columns))
     if missing:
@@ -54,13 +55,19 @@ def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6") -> pd.DataFrame:
     df["leg_ratio"] = df["subject_id"].map(subject_ratio["leg_ratio"])
 
     group_cols = seq_cols
-    df["angle_velocity"] = df.groupby(group_cols)["mp_knee_angle"].diff().fillna(0.0)
+    # time-aware: rate 피처를 dt(초)로 나눠 deg/s 화 → stride/fps 불변. (time_aware=False면 inv=1=기존)
+    if time_aware:
+        dt = (df.groupby(group_cols)["frame_index"].diff() / fps)
+        inv = (1.0 / dt).replace([np.inf, -np.inf], np.nan)
+    else:
+        inv = pd.Series(1.0, index=df.index)
+    df["angle_velocity"] = (df.groupby(group_cols)["mp_knee_angle"].diff() * inv).fillna(0.0)
     df["angle_vel_smooth"] = (
         df.groupby(group_cols)["angle_velocity"]
         .transform(lambda x: x.rolling(5, center=False, min_periods=1).mean())
         .fillna(0.0)
     )
-    df["angle_acceleration"] = df.groupby(group_cols)["angle_velocity"].diff().fillna(0.0)
+    df["angle_acceleration"] = (df.groupby(group_cols)["angle_velocity"].diff() * inv).fillna(0.0)
     df["knee_lag1"] = df.groupby(group_cols)["mp_knee_angle"].shift(1)
     df["knee_lag2"] = df.groupby(group_cols)["mp_knee_angle"].shift(2)
     df["view_is_side"] = (df["view_type"] == "side").astype(float)
@@ -68,7 +75,7 @@ def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6") -> pd.DataFrame:
     for col in ["k_x", "k_y", "k_z", "a_x", "a_y", "a_z"]:
         df[f"{col}_lag1"] = df.groupby(group_cols)[col].shift(1)
         joint, axis = col.split("_")
-        df[f"{joint}_d{axis}"] = df[col] - df[f"{col}_lag1"]
+        df[f"{joint}_d{axis}"] = ((df[col] - df[f"{col}_lag1"]) * inv)
 
     df["min_leg_vis"] = df[["h_vis", "k_vis", "a_vis"]].min(axis=1)
     df["mean_leg_vis"] = df[["h_vis", "k_vis", "a_vis"]].mean(axis=1)
@@ -132,7 +139,7 @@ def run_loso(df: pd.DataFrame, feature_cols: list[str], n_estimators: int, max_d
     rows = []
     predictions = []
 
-    for subject in subjects:
+    for i, subject in enumerate(subjects, 1):
         train_df = df[df["subject_id"] != subject]
         test_df = df[df["subject_id"] == subject]
         if train_df.empty or test_df.empty:
@@ -144,6 +151,8 @@ def run_loso(df: pd.DataFrame, feature_cols: list[str], n_estimators: int, max_d
         summary["subject_id"] = str(subject)
         rows.append(summary)
         predictions.append(pred_df)
+        print(f"[fold {i}/{len(subjects)}] {subject}: raw {summary['mae_raw']:.2f}° → "
+              f"corr {summary['mae_corrected']:.2f}° ({summary['improvement_pct']:+.1f}%)", flush=True)
 
     if not rows:
         raise RuntimeError("No LOSO folds were produced.")
@@ -161,12 +170,15 @@ def main() -> None:
     parser.add_argument("--random-state", type=int, default=42)
     parser.add_argument("--deep-flexion-threshold", type=float, default=110.0)
     parser.add_argument("--feature-set", choices=sorted(FEATURE_SETS), default="v6")
+    parser.add_argument("--time-aware", action="store_true",
+                        help="rate 피처를 dt(초)로 정규화(deg/s) → stride/fps 불변")
+    parser.add_argument("--fps", type=float, default=30.0)
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
     raw_df = pd.read_csv(args.features)
     feature_cols = FEATURE_SETS[args.feature_set]
-    df = prepare_v6_data(raw_df, feature_set=args.feature_set)
+    df = prepare_v6_data(raw_df, feature_set=args.feature_set, time_aware=args.time_aware, fps=args.fps)
 
     loso_df, pred_df = run_loso(df, feature_cols, args.n_estimators, args.max_depth, args.random_state)
 
