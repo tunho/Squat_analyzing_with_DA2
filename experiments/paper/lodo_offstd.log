@@ -1,0 +1,15 @@
+[LODO] hold out AIHub: train 111632 frames (38 subj) -> test 137264 frames (46 subj)
+        -> raw 14.31° corr 15.90° | pooled -11.1% | subjmean -11.4% | improved 5/46 | deep +28.0%
+[LODO] hold out SUMediPose: train 171204 frames (58 subj) -> test 77692 frames (26 subj)
+        -> raw 12.65° corr 9.96° | pooled +21.3% | subjmean +21.5% | improved 26/26 | deep +16.6%
+[LODO] hold out REHAB: train 221932 frames (75 subj) -> test 26964 frames (9 subj)
+        -> raw 12.29° corr 12.04° | pooled +2.1% | subjmean +2.5% | improved 5/9 | deep +0.0%
+[LODO] hold out FiT3D: train 241920 frames (81 subj) -> test 6976 frames (3 subj)
+        -> raw 20.37° corr 15.53° | pooled +23.8% | subjmean +25.2% | improved 3/3 | deep +34.8%
+
+Saved: ../experiments/paper/lodo_offstd/lodo_metrics.csv
+  held_out  n_subjects  frames   mae_raw  mae_corrected  improvement_pooled_pct  improvement_subjmean_pct subjects_improved  deep_improvement_pct
+     AIHub          46  137264 14.305851      15.897133              -11.123300                -11.371688              5/46             28.034068
+SUMediPose          26   77692 12.647949       9.959578               21.255389                 21.529153             26/26             16.617650
+     REHAB           9   26964 12.290978      12.037035                2.066096                  2.514910               5/9              0.026780
+     FiT3D           3    6976 20.372110      15.528871               23.773873                 25.151515               3/3             34.785827

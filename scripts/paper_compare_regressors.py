@@ -41,7 +41,7 @@ def build_regressors(seed: int) -> dict:
     except Exception:
         pass
     regs["HistGBM"] = lambda: HistGradientBoostingRegressor(max_iter=400, learning_rate=0.05, random_state=seed)
-    regs["ExtraTrees(현행)"] = lambda: ExtraTreesRegressor(n_estimators=200, max_depth=15, random_state=seed, n_jobs=-1)
+    regs["ExtraTrees(현행)"] = lambda: ExtraTreesRegressor(n_estimators=300, max_depth=15, random_state=seed, n_jobs=-1)
     regs["RandomForest"] = lambda: RandomForestRegressor(n_estimators=200, max_depth=15, random_state=seed, n_jobs=-1)
     return regs
 
