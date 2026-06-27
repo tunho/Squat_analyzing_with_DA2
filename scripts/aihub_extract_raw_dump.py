@@ -31,8 +31,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from squat.pose_estimation import PoseEstimator
-
+# PoseEstimator(MediaPipe)는 main()에서 lazy import — 추정기 venv에서 load_gt 등 재사용 위함.
 _CAM_RE = re.compile(r"camera(\d+)")
 GT_LEFT = ("LHip", "LKnee", "LAnkle")
 GT_RIGHT = ("RHip", "RKnee", "RAnkle")
@@ -192,6 +191,7 @@ def main() -> None:
                 "ann_start": ann_start,
                 "ann_end": ann_end,
             })
+            from squat.pose_estimation import PoseEstimator  # lazy
             pose = PoseEstimator(static_image_mode=False)
             try:
                 rows = dump_camera(pose, avis[0], gt, meta, args.timestamp_step_ms)
