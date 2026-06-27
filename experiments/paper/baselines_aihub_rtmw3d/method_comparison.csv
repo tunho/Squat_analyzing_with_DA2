@@ -1,0 +1,7 @@
+method,loso_mae_corrected,loso_improvement_pct,pooled_mae_corrected,pooled_rmse_corrected,deep_mae_corrected
+raw,18.891,0.0,18.986,25.786,19.206
+savgol,18.781,0.58,18.937,25.636,19.143
+kalman,21.809,-15.45,22.221,29.088,23.369
+mlp_direct,4.839,74.38,4.799,7.029,6.527
+mlp_residual,4.884,74.15,4.87,7.124,6.538
+extratrees_residual,5.399,71.42,5.269,7.804,7.033

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -26,7 +27,7 @@ from paper_train_loso import (
 
 def dataset_of(subject_id: str) -> str:
     s = str(subject_id)
-    if s.startswith("SUME"):
+    if s.startswith("SUME") or re.fullmatch(r"S\d+", s):
         return "SUMediPose"
     if s.startswith("fit3d"):
         return "FiT3D"

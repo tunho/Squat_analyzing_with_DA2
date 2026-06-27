@@ -1,0 +1,167 @@
+[
+  {
+    "held_out": "AIHub",
+    "k": 0,
+    "n_draws": 1,
+    "n_test_subj": 44,
+    "pooled_mean": 28.64700872602063,
+    "pooled_std": 0.0,
+    "subjmean_mean": 29.033206234004595,
+    "deep_mean": 36.375195074680526,
+    "deep_std": 0.0
+  },
+  {
+    "held_out": "AIHub",
+    "k": 1,
+    "n_draws": 5,
+    "n_test_subj": 43,
+    "pooled_mean": 38.37221873347981,
+    "pooled_std": 3.6972998950465814,
+    "subjmean_mean": 38.562457996831384,
+    "deep_mean": 43.659183058423345,
+    "deep_std": 3.8915144619141
+  },
+  {
+    "held_out": "AIHub",
+    "k": 2,
+    "n_draws": 5,
+    "n_test_subj": 42,
+    "pooled_mean": 37.47529964867615,
+    "pooled_std": 4.459669037978173,
+    "subjmean_mean": 37.16005104871398,
+    "deep_mean": 41.36809721952959,
+    "deep_std": 6.472058480490268
+  },
+  {
+    "held_out": "AIHub",
+    "k": 3,
+    "n_draws": 5,
+    "n_test_subj": 41,
+    "pooled_mean": 44.89107145188372,
+    "pooled_std": 3.181066535978198,
+    "subjmean_mean": 45.02952913624165,
+    "deep_mean": 46.628574374260644,
+    "deep_std": 2.696135198933799
+  },
+  {
+    "held_out": "SUMediPose",
+    "k": 0,
+    "n_draws": 1,
+    "n_test_subj": 26,
+    "pooled_mean": 28.406438574198546,
+    "pooled_std": 0.0,
+    "subjmean_mean": 22.705316466836738,
+    "deep_mean": 36.91417541376495,
+    "deep_std": 0.0
+  },
+  {
+    "held_out": "SUMediPose",
+    "k": 1,
+    "n_draws": 5,
+    "n_test_subj": 25,
+    "pooled_mean": 34.56460704951801,
+    "pooled_std": 3.01720617765987,
+    "subjmean_mean": 28.31911404040806,
+    "deep_mean": 42.901443113911895,
+    "deep_std": 2.636452290281651
+  },
+  {
+    "held_out": "SUMediPose",
+    "k": 2,
+    "n_draws": 5,
+    "n_test_subj": 24,
+    "pooled_mean": 37.7670585874777,
+    "pooled_std": 3.337308923049759,
+    "subjmean_mean": 32.34697704773792,
+    "deep_mean": 48.44771631850741,
+    "deep_std": 2.8392496313707833
+  },
+  {
+    "held_out": "SUMediPose",
+    "k": 3,
+    "n_draws": 5,
+    "n_test_subj": 23,
+    "pooled_mean": 40.0730208451529,
+    "pooled_std": 2.4037585202563,
+    "subjmean_mean": 34.36857122330137,
+    "deep_mean": 49.336599547047655,
+    "deep_std": 2.469760178943344
+  },
+  {
+    "held_out": "REHAB",
+    "k": 0,
+    "n_draws": 1,
+    "n_test_subj": 9,
+    "pooled_mean": -49.12384960850885,
+    "pooled_std": 0.0,
+    "subjmean_mean": -52.241981108441465,
+    "deep_mean": -32.39419059974493,
+    "deep_std": 0.0
+  },
+  {
+    "held_out": "REHAB",
+    "k": 1,
+    "n_draws": 5,
+    "n_test_subj": 8,
+    "pooled_mean": -27.972745164115672,
+    "pooled_std": 8.564676822590382,
+    "subjmean_mean": -31.513319017862095,
+    "deep_mean": -14.81169254765258,
+    "deep_std": 5.705882206734773
+  },
+  {
+    "held_out": "REHAB",
+    "k": 2,
+    "n_draws": 5,
+    "n_test_subj": 7,
+    "pooled_mean": -19.079619089951148,
+    "pooled_std": 6.6321064923237945,
+    "subjmean_mean": -22.379130049861317,
+    "deep_mean": -11.401443021659734,
+    "deep_std": 9.103811085891063
+  },
+  {
+    "held_out": "REHAB",
+    "k": 3,
+    "n_draws": 5,
+    "n_test_subj": 6,
+    "pooled_mean": -12.112714297989921,
+    "pooled_std": 8.59227627235088,
+    "subjmean_mean": -15.434455031757304,
+    "deep_mean": -3.450620686211515,
+    "deep_std": 9.226974272460836
+  },
+  {
+    "held_out": "FiT3D",
+    "k": 0,
+    "n_draws": 1,
+    "n_test_subj": 3,
+    "pooled_mean": 30.850687549034532,
+    "pooled_std": 0.0,
+    "subjmean_mean": 23.64467913571904,
+    "deep_mean": 59.51150710697362,
+    "deep_std": 0.0
+  },
+  {
+    "held_out": "FiT3D",
+    "k": 1,
+    "n_draws": 3,
+    "n_test_subj": 2,
+    "pooled_mean": 30.764244445063827,
+    "pooled_std": 15.116202831198262,
+    "subjmean_mean": 25.025799385847254,
+    "deep_mean": 58.9263888464664,
+    "deep_std": 10.476588310687527
+  },
+  {
+    "held_out": "FiT3D",
+    "k": 2,
+    "n_draws": 3,
+    "n_test_subj": 1,
+    "pooled_mean": 25.904089302168106,
+    "pooled_std": 37.7959679963226,
+    "subjmean_mean": 25.904089302168106,
+    "deep_mean": 54.62556061864169,
+    "deep_std": 27.597174450318516
+  }
+]

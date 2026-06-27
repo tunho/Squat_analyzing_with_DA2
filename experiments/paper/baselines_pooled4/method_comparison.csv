@@ -1,0 +1,7 @@
+method,loso_mae_corrected,loso_improvement_pct
+raw,13.789,0.0
+mlp_direct,7.636,44.62
+mlp_residual,7.589,44.96
+extratrees_residual,7.878,42.87
+savgol (N/A: 시간연속성 필요-단일영상 전용),,
+kalman (N/A: 시간연속성 필요-단일영상 전용),,

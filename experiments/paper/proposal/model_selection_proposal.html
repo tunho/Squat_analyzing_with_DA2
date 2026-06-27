@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { font-family: "Noto Sans CJK KR", sans-serif; }
+  body { font-size: 10.5pt; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 17pt; border-bottom: 2.5px solid #2c3e50; padding-bottom: 6px; margin-bottom: 2px; color:#1b2a3a; }
+  h2 { font-size: 13pt; margin-top: 18px; color: #1b3a5a; border-left: 5px solid #2c7fb8; padding-left: 8px; }
+  h3 { font-size: 11pt; margin-top: 12px; color: #34495e; }
+  .sub { color:#555; font-size:9.5pt; margin-top:0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 9.3pt; }
+  th, td { border: 1px solid #b8c4d0; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #eaf2f8; font-weight: bold; }
+  td.c, th.c { text-align: center; }
+  .ok { color: #1e7e34; font-weight: bold; }
+  .warn { color: #b8860b; font-weight: bold; }
+  .best { background: #e8f6ef; font-weight: bold; }
+  .note { background:#fbf7e8; border:1px solid #e6d9a8; padding:7px 10px; border-radius:4px; margin:8px 0; font-size:9.5pt; }
+  .rec { background:#eaf4fb; border:1px solid #aacbe6; padding:7px 10px; border-radius:4px; margin:8px 0; }
+  ul { margin: 4px 0 4px 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-family:"Noto Sans Mono CJK KR", monospace; font-size:9pt; }
+  small { color:#666; }
+  .foot { margin-top:14px; border-top:1px solid #ccc; padding-top:6px; font-size:8.5pt; color:#666; }
+</style>
+</head>
+<body>
+
+<h1>스쿼트 무릎각 잔차보정 — 모델·보정기 선정 제안서</h1>
+<p class="sub">검수용 / 대상 저널: IEEE Journal of Biomedical and Health Informatics (J-BHI) · 작성일 2026-06-19</p>
+
+<div class="note">
+<b>피드백 배경.</b> "MediaPipe 의존성에서 벗어났음을 증명하기 위해 ① 추가 SOTA pose 추정기 여러 개와
+② 다른(딥러닝 포함) 각도 보정 방법론을 먼저 선정·검수받고 진행할 것." 본 문서는 그 <b>선정안</b>이며,
+모든 모델의 발표처·공개여부를 외부 출처로 대조 검증하였다.
+</div>
+
+<h2>A. Pose 추정기 (앞단) — 추정기 비종속성 입증용</h2>
+<p class="sub">선정기준: ①영상→3D 관절좌표(무릎각 산출 가능) ②최근 2~3년(2024~2025 우선) ③코드·가중치 공개 ④서로 다른 아키텍처(일반화 주장 성립)</p>
+
+<table>
+<tr><th class="c">#</th><th>모델</th><th class="c">발표</th><th>구조 유형</th><th>3D 출력</th><th class="c">공개</th><th class="c">통합난이도</th></tr>
+<tr><td class="c">0</td><td><b>MediaPipe BlazePose</b> (기존)</td><td class="c">2020</td><td>경량 CNN</td><td>world 3D</td><td class="c ok">✓</td><td class="c">기준</td></tr>
+<tr class="best"><td class="c">1</td><td><b>NLF</b> (Neural Localizer Fields)</td><td class="c">NeurIPS 2024</td><td>metric 회귀 + SMPL</td><td>metric 3D (원샷)</td><td class="c ok">✓</td><td class="c">★ 쉬움</td></tr>
+<tr><td class="c">2</td><td><b>RTMW3D / RTMPose3D</b></td><td class="c">2024 (MMPose)</td><td>top-down 실시간</td><td>camera 3D (원샷)</td><td class="c ok">✓</td><td class="c">★★ 보통</td></tr>
+<tr><td class="c">3</td><td><b>MotionBERT</b></td><td class="c">ICCV 2023</td><td>2D→3D lifting Transformer</td><td>relative 3D</td><td class="c ok">✓</td><td class="c">★★ 2D검출기 필요</td></tr>
+<tr><td class="c">4</td><td><b>WHAM</b></td><td class="c">CVPR 2024</td><td>SMPL+temporal, world-grounded</td><td>global 3D</td><td class="c ok">✓</td><td class="c">★★★ 무거움</td></tr>
+<tr><td class="c">—</td><td>Sapiens (Meta)</td><td class="c">ECCV 2024 Oral</td><td>foundation ViT</td><td>2D+depth (3D 간접)</td><td class="c ok">✓</td><td class="c">★★★ 간접</td></tr>
+<tr><td class="c">—</td><td>대안: GVHMR / TRAM</td><td class="c">2024</td><td>world-grounded</td><td>global 3D</td><td class="c ok">✓</td><td class="c">WHAM 대체용</td></tr>
+</table>
+
+<div class="rec">
+<b>▶ 추천 최종안:</b> <b>MediaPipe + NLF + RTMW3D + MotionBERT</b> (여력 시 WHAM 추가, 5계열)<br>
+<small>경량CNN(MP) · metric회귀(NLF) · 실시간 top-down(RTMW3D) · lifting transformer(MotionBERT) ·
+SMPL world기반(WHAM) — <b>서로 다른 5계열</b>에서 동일 잔차보정이 향상되면 "특정 도구 트릭이 아님"이 강하게 입증된다.</small>
+</div>
+
+<h3>정확성 보정 사항 (검증 중 확인)</h3>
+<ul>
+<li><b>metric world 좌표는 필수 아님.</b> 무릎각은 평행이동·스케일 불변 → camera-space 3D(RTMW3D)·relative 3D(MotionBERT)도 충분. 후보 폭이 넓고 통합 난이도가 낮아진다.</li>
+<li><b>MotionBERT는 영상 직접 입력이 아님.</b> lifting 모델이라 2D 검출기(RTMPose 등) 전단이 필요 — NLF/RTMW3D의 "영상→3D 원샷"과 다름(한 단계 더 듦).</li>
+<li><b>의존성 충돌 대비.</b> 모델별 CUDA/torch 버전이 달라, <b>venv 분리로 feature CSV만 추출</b>하고 학습·LOSO는 공용 파이프라인 재사용(현 구조와 동일).</li>
+</ul>
+
+<h2>B. 보정기 (뒷단) — 다른 보정 방법론과 비교</h2>
+<p class="sub">핵심: 제안 방법(ExtraTrees)은 <b>딥러닝이 아니라 트리 앙상블</b> → 비교군에 ①고전 신호처리 ②딥러닝 모두 포함해야 공정.</p>
+
+<table>
+<tr><th>부류</th><th>방법</th><th>근거/출처</th><th>역할</th></tr>
+<tr><td>고전 후처리</td><td>Savitzky–Golay</td><td>운동학 신호처리 표준</td><td>"평활만으론 계통오차 못잡음" 하한선</td></tr>
+<tr><td>고전 후처리</td><td>Kalman / RTS smoother</td><td>IMU 관절각 보정 표준 (Springer 2024)</td><td>동상</td></tr>
+<tr><td>딥러닝(프레임)</td><td><b>MLP</b></td><td>기본 신경망 회귀</td><td>"다른 딥러닝" 기본형</td></tr>
+<tr><td>딥러닝(시계열)</td><td><b>TCN</b> 또는 <b>BiLSTM</b></td><td>IMU/관절각 보정 문헌 표준(2024~25)</td><td>본격 딥러닝 베이스라인</td></tr>
+<tr class="best"><td>제안</td><td>ExtraTrees 잔차회귀</td><td>(본 연구)</td><td>—</td></tr>
+</table>
+
+<div class="rec">
+<b>▶ 추천 최종안:</b> 고전 2종(SavGol, Kalman) + 딥러닝 2종(MLP, TCN/BiLSTM) + 제안(ExtraTrees)
+</div>
+
+<h3>예비 검증 결과 (REHAB24-6 / Ex6, 동일 LOSO·동일 지표)</h3>
+<table>
+<tr><th>보정 방법</th><th class="c">LOSO MAE</th><th class="c">향상</th><th>해석</th></tr>
+<tr><td>raw (MediaPipe)</td><td class="c">12.29°</td><td class="c">0%</td><td>기준</td></tr>
+<tr><td>Savitzky–Golay</td><td class="c">12.21°</td><td class="c">+0.6%</td><td>평활 한계</td></tr>
+<tr><td>Kalman</td><td class="c">12.15°</td><td class="c">+1.2%</td><td>평활 한계</td></tr>
+<tr><td>MLP (직접회귀)</td><td class="c">9.97°</td><td class="c">+18.9%</td><td>딥러닝</td></tr>
+<tr><td>MLP (잔차회귀)</td><td class="c">8.70°</td><td class="c">+29.2%</td><td>딥러닝 + 잔차</td></tr>
+<tr class="best"><td>ExtraTrees (제안)</td><td class="c">8.16°</td><td class="c">+33.6%</td><td>최고</td></tr>
+</table>
+<p class="sub">→ "고전평활 ≪ 딥러닝 ≲ 제안방법", "잔차 &gt; 직접" 구도가 수치로 확인됨. 주력 4-도메인(pooled4, 84명·25만 프레임) 본 실험 진행 중.</p>
+
+<div class="note">
+<b>"스쿼트 특화 타 논문 방법" 관련 보고.</b> 스쿼트 무릎각을 <b>연속 회귀로 보정</b>한 직접 선행연구는 거의 없으며
+대부분 폼 분류/피드백 수준이다. 이는 약점이 아니라 본 연구의 <b>novelty</b>이며, 비교군은 위의 일반 각도보정
+(딥러닝·고전)이 더 공정하고 정량적이다.
+</div>
+
+<h2>C. 검수 요청 항목</h2>
+<ul>
+<li><b>① Pose 추정기:</b> 추천 5종(MP+NLF+RTMW3D+MotionBERT+WHAM)으로 진행? WHAM 포함/제외?</li>
+<li><b>② 시계열 딥러닝 보정기:</b> TCN vs BiLSTM 중 선호?</li>
+<li><b>③ "스쿼트 특화 비교군 부재"</b>를 novelty로 프레이밍하는 것에 동의?</li>
+</ul>
+
+<div class="foot">
+출처: NLF (NeurIPS 2024, github.com/isarandi/nlf) · MotionBERT (ICCV 2023, github.com/Walter0807/MotionBERT) ·
+RTMPose3D (open-mmlab/mmpose) · WHAM (CVPR 2024, github.com/yohanshin/WHAM) · Sapiens (ECCV 2024) ·
+Kalman knee-angle correction (Springer 2024, s11042-024-19483-3).
+</div>
+
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { font-family: "Noto Sans CJK KR", sans-serif; }
+  body { font-size: 10.5pt; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 17pt; border-bottom: 2.5px solid #2c3e50; padding-bottom: 6px; margin-bottom: 2px; color:#1b2a3a; }
+  h2 { font-size: 13pt; margin-top: 16px; color: #1b3a5a; border-left: 5px solid #2c7fb8; padding-left: 8px; }
+  .sub { color:#555; font-size:9.5pt; margin-top:0; }
+  table { border-collapse: collapse; width: 100%; margin: 7px 0; font-size: 9.3pt; }
+  th, td { border: 1px solid #b8c4d0; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #eaf2f8; font-weight: bold; }
+  td.c, th.c { text-align: center; }
+  .pick { background: #e8f6ef; }
+  .picktag { color:#1e7e34; font-weight:bold; }
+  .opt { color:#777; }
+  .note { background:#fbf7e8; border:1px solid #e6d9a8; padding:7px 10px; border-radius:4px; margin:8px 0; font-size:9.5pt; }
+  .rec { background:#eaf4fb; border:1px solid #aacbe6; padding:7px 10px; border-radius:4px; margin:8px 0; }
+  ul { margin: 4px 0; padding-left: 18px; } li { margin: 2px 0; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-family:"Noto Sans Mono CJK KR", monospace; font-size:9pt; }
+  .foot { margin-top:12px; border-top:1px solid #ccc; padding-top:6px; font-size:8.5pt; color:#666; }
+  .q { background:#fdeaea; border:1px solid #e6b0b0; padding:7px 10px; border-radius:4px; margin:8px 0; }
+</style>
+</head>
+<body>
+
+<h1>최종 선정안 — 보정기 · 딥러닝 · 추정기</h1>
+<p class="sub">검수용 / 대상: IEEE J-BHI · 2026-06-19 · 모든 모델 발표처·공개여부 외부출처 검증 완료</p>
+
+<div class="note">
+교수님 피드백("MediaPipe 의존성 탈피 + 다른 딥러닝 포함 보정 비교, 선정 먼저 검수")에 대한 <b>3개 범주 최종 선택</b>.
+✅=선정, (옵션)=여력 시.
+</div>
+
+<!-- ============ 1 ============ -->
+<h2>① 다른 보정기 (비-딥러닝 비교군)</h2>
+<table>
+<tr><th>선택</th><th>방법</th><th>유형</th><th>선정 근거</th></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>Savitzky–Golay</b></td><td>고전 평활</td><td>운동학 신호처리 표준. "평활만으론 계통오차 못잡음" 하한선</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>Kalman / RTS smoother</b></td><td>고전 평활</td><td>IMU 관절각 보정 표준(Springer 2024). 동일 역할</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>ExtraTrees 잔차회귀</b></td><td>트리 앙상블 <small>(제안)</small></td><td>본 연구 방법</td></tr>
+</table>
+<div class="note" style="margin-top:4px">
+<b>적용 범위 주의(실험으로 규명).</b> 평활(SavGol·Kalman)은 <b>단일 연속 영상</b>에서만 유효.
+여러 데이터셋을 섞은 pooled에서는 한 ID에 여러 영상이 혼합돼 신호가 깨짐 → <b>표2(보정비교)는 단일 데이터셋(REHAB Ex6)</b>에서 수행.
+이는 제안법의 강점("시간 연속성 불필요")으로 서술.
+</div>
+
+<!-- ============ 2 ============ -->
+<h2>② AI 딥러닝 보정기</h2>
+<table>
+<tr><th>선택</th><th>모델</th><th>유형</th><th>상태 / 근거</th></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>MLP</b> (다층 신경망)</td><td>딥러닝 · 프레임단위</td><td><b>구현·검증 완료.</b> torch 불필요(sklearn)</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>TCN</b> (Temporal Conv)</td><td>딥러닝 · 시계열</td><td><b>제안.</b> 가볍고 안정적, 짧은 스쿼트 시퀀스 적합. torch 필요</td></tr>
+<tr><td class="c opt">(대안)</td><td>BiLSTM</td><td>딥러닝 · 시계열</td><td>IMU/관절각 보정 문헌 표준 — 인용 유리. TCN 대신 택1</td></tr>
+</table>
+<div class="q">
+<b>※ 검수 결정 필요:</b> 시계열 딥러닝을 <b>TCN(추천) vs BiLSTM</b> 중 무엇으로 할지.
+</div>
+
+<table>
+<tr><th>선택</th><th>비교군</th><th>유형</th><th>상태 / 처리</th></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>일반 각도보정</b> (SavGol·Kalman) — 위 ①</td><td>타 논문 방법</td><td>"하나는 일반" 충족</td></tr>
+<tr><td class="c opt">△</td><td><b>스쿼트 특화 보정</b> ("하나는 스쿼트")</td><td>타 논문 방법</td><td><b>직접 선행연구 희소</b> — 아래 설명</td></tr>
+</table>
+<div class="note">
+<b>"하나는 스쿼트" 처리 방침.</b> 스쿼트 무릎각을 <b>연속 회귀로 보정</b>한 직접 선행연구는 거의 없고
+(대부분 폼 분류/피드백: YOLOv5+MediaPipe 등), 정량적 각도오차 비교가 어렵다.
+→ ⑴ 이를 본 연구의 <b>novelty</b>로 명시하고, ⑵ 스쿼트 도메인 비교군으로는
+<b>MLP 직접회귀(gt_angle 직접 추정)</b>를 "비잔차 학습형 보정"의 대표로 세워 정량 비교한다.
+<span class="q" style="display:inline-block;padding:2px 6px;margin-top:4px"><b>※ 검수 결정 필요:</b> 이 대체 방침에 동의하시는지.</span>
+</div>
+
+<!-- ============ 3 ============ -->
+<h2>③ MediaPipe 대용 (Pose 추정기)</h2>
+<p class="sub">선정기준: 영상→3D 관절(무릎각 산출) · 최근 2~3년 · 코드/가중치 공개 · 서로 다른 아키텍처(일반화 성립). 무릎각은 평행이동·스케일 불변이라 metric world 좌표 불필요.</p>
+<table>
+<tr><th>선택</th><th>모델</th><th class="c">발표</th><th>구조</th><th>통합</th></tr>
+<tr><td class="c">기준</td><td>MediaPipe BlazePose</td><td class="c">2020</td><td>경량 CNN</td><td>현행</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>NLF</b></td><td class="c">NeurIPS 2024</td><td>metric 회귀(원샷)</td><td>★ 쉬움</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>RTMW3D / RTMPose3D</b></td><td class="c">2024 MMPose</td><td>실시간 top-down(원샷)</td><td>★★</td></tr>
+<tr class="pick"><td class="c picktag">✅</td><td><b>MotionBERT</b></td><td class="c">ICCV 2023</td><td>2D→3D lifting</td><td>★★ <small>2D검출기 필요</small></td></tr>
+<tr><td class="c opt">(옵션)</td><td>WHAM</td><td class="c">CVPR 2024</td><td>SMPL world기반</td><td>★★★ 무거움</td></tr>
+</table>
+<div class="rec">
+<b>▶ 확정 추천:</b> <b>MediaPipe + NLF + RTMW3D + MotionBERT</b> (4종) — 여력 시 WHAM 추가(5계열).<br>
+<small>경량CNN·metric회귀·실시간top-down·lifting·(SMPL world) — 서로 다른 계열 전부에서 잔차보정이 향상되면 "MediaPipe 트릭 아님" 입증.</small>
+</div>
+<div class="q">
+<b>※ 검수 결정 필요:</b> WHAM 포함 여부(통합 부담 큼).
+</div>
+
+<!-- ============ evidence ============ -->
+<h2>예비 검증 결과 (선정 근거)</h2>
+<table>
+<tr><th>보정 방법</th><th class="c">REHAB Ex6 (단일)</th><th class="c">pooled4 (4도메인·25만)</th></tr>
+<tr><td>raw (MediaPipe)</td><td class="c">12.29° / 0%</td><td class="c">13.79° / 0%</td></tr>
+<tr><td>Savitzky–Golay</td><td class="c">12.21° / +0.6%</td><td class="c opt">N/A (단일전용)</td></tr>
+<tr><td>Kalman</td><td class="c">12.15° / +1.2%</td><td class="c opt">N/A (단일전용)</td></tr>
+<tr><td>MLP (딥러닝)</td><td class="c">8.70° / +29.2%</td><td class="c picktag">7.59° / +45.0%</td></tr>
+<tr class="pick"><td>ExtraTrees (제안)</td><td class="c picktag">8.16° / +33.6%</td><td class="c">7.88° / +42.9%</td></tr>
+</table>
+<div class="note">
+<b>발견:</b> 단일(ex6)은 <b>ExtraTrees 우위</b>(+33.6%), 대규모 4도메인은 <b>MLP(딥러닝)가 근소 역전</b>(+45.0% vs +42.9%).
+→ "규모에 따라 최적 보정기가 달라진다"는 정직한 메시지. 교수님의 딥러닝 제안이 실증됨.
+</div>
+
+<h2>J-BHI 제출 요건 체크리스트</h2>
+<p class="sub">대상 저널(IEEE J-BHI, embs.org)이 사실상 요구하는 항목과 현재 상태.</p>
+<table>
+<tr><th>요건</th><th>설명</th><th class="c">상태</th></tr>
+<tr><td>추정기 비종속성 (표1)</td><td>추정기 4~5종 × 잔차보정 향상 — 위 ③</td><td class="c">선정 완료 / 실험 미착수</td></tr>
+<tr><td>보정방법 비교 (표2)</td><td>고전 2 + 딥러닝 2 + 제안 — 위 ①②</td><td class="c picktag">REHAB 완료 (TCN 추가 예정)</td></tr>
+<tr><td><b>일치도 통계</b></td><td>Bland–Altman(bias±LoA), ICC, CCC — 임상검증 표준</td><td class="c">미착수 (CSV 재분석)</td></tr>
+<tr><td><b>유의성 검정</b></td><td>보정 전후 paired test (+다중비교 보정)</td><td class="c">미착수</td></tr>
+<tr><td>다도메인 LOSO</td><td>4개 데이터셋 unseen-subject 일반화</td><td class="c picktag">보유</td></tr>
+<tr><td>임상적 해석</td><td>무릎각 오차°의 재활 의미 / 계산비용·실시간성</td><td class="c">서술 필요</td></tr>
+</table>
+<div class="note">
+<b>프레이밍.</b> 측정공학이 아니라 헬스 인포매틱스식 — "접근성 높은 markerless 원격재활 평가를 위한,
+<b>추정기 비종속 데이터기반 무릎각 보정 프레임워크</b>". MediaPipe 비종속 = 상용도구 락인 없는 배포가능 계층.
+</div>
+
+<div class="foot">
+출처: NLF(NeurIPS 2024, github.com/isarandi/nlf) · RTMPose3D(open-mmlab/mmpose) · MotionBERT(ICCV 2023, github.com/Walter0807/MotionBERT) ·
+WHAM(CVPR 2024, github.com/yohanshin/WHAM) · Kalman knee-angle(Springer 2024, s11042-024-19483-3).
+수치: scripts/paper_baselines_loso.py, 동일 LOSO subject-mean MAE.
+</div>
+
+</body>
+</html>
