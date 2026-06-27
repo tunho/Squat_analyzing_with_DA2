@@ -24,7 +24,9 @@ from squat.geometry.angles import calculate_knee_angle
 from squat.geometry.world_knee_ops import point_to_np
 from squat.pipeline.frame_builder import build_squat_frame
 from squat.pipeline.frame_processor import _extract_world_landmarks
-from squat.pose_estimation import PoseEstimator
+# NOTE: PoseEstimator(MediaPipe) 는 main()에서 lazy import.
+# 그래야 mediapipe 없는 추정기 venv(.venv-nlf/.venv-mmpose)에서도 이 모듈의
+# 로더(load_gt_joints/extract_feature_rows/CAM_INFO 등)를 재사용할 수 있음.
 
 
 # FiT3D joints3d_25 uses H36M-based ordering
@@ -259,6 +261,7 @@ def main() -> None:
             if not video_path.exists():
                 continue
 
+            from squat.pose_estimation import PoseEstimator  # lazy(아래 estimator-agnostic 추출에서 이 모듈 재사용 위함)
             pose_estimator = PoseEstimator(static_image_mode=False)
             try:
                 df = extract_video(

@@ -41,6 +41,11 @@ def prepare_v6_data(df: pd.DataFrame, feature_set: str = "v6",
     # 시계열 시퀀스 단위: AIHub 처럼 한 view_type 에 여러 camera 가 묶이면
     # lag/velocity 가 카메라 경계를 넘지 않도록 camera 를 그룹키에 포함한다.
     # (REHAB/FiT3D 는 camera 컬럼이 없어 기존 동작과 동일)
+    # 풀링 CSV에서 REHAB/FiT3D 는 camera 컬럼이 통째로 NaN 이다(AIHub/SUMe 스키마에 맞춰
+    # 추가된 빈 컬럼). groupby 는 NaN 키 행을 버리므로 lag/velocity 가 전부 NaN→dropna 에서
+    # 해당 도메인 전 행이 사라진다. 단일 영상이므로 sentinel 로 채워 한 시퀀스로 처리한다.
+    if "camera" in df.columns:
+        df["camera"] = df["camera"].fillna("__single__")
     seq_cols = ["subject_id", "view_type"] + (["camera"] if "camera" in df.columns else [])
     df = df.sort_values(seq_cols + ["frame_index"]).copy()
 

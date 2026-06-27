@@ -41,15 +41,25 @@ scripts/*
 !scripts/clinical_downstream.py
 !scripts/stats_ci.py
 !scripts/make_figures.py
+# 보정기 벤치마크·통계 코드 (J-BHI 표2/표3)
+!scripts/paper_baselines_loso.py
+!scripts/smoothnet_corrector.py
+!scripts/tcn_corrector.py
+!scripts/diffusion_corrector.py
+!scripts/corrector_stats.py
+!scripts/agreement_stats.py
 
 # 데이터셋 파생 feature CSV(대용량·라이선스) — 원격에 올리지 않음 (추출기로 재생성)
 experiments/paper/features_aihub_squat.csv
 experiments/paper/features_aihub_test.csv
 experiments/paper/features_pooled_aihub_rehab.csv
 experiments/paper/features_pooled_all.csv
+experiments/paper/features_*.csv
 experiments/paper/features_*_causal.csv
 experiments/paper/features_*_offstd.csv
 experiments/paper/features_pooled*.csv
+# 서버 이식 번들(스크립트·CSV 복사본, 재생성 가능) — 추적 안 함
+server_bundle/
 # 대용량 원본 덤프 / 추출 데이터 (재생성 가능, 라이선스) — 원격에 올리지 않음
 experiments/paper/aihub_raw_dump/
 experiments/paper/sumedipose_raw_dump/
@@ -57,3 +67,10 @@ experiments/paper/_aihub_lists/
 # 프레임별 예측(피처 포함, 대용량) — 중첩 경로 포함, 집계물(metrics/summary)만 추적
 experiments/paper/**/predictions.csv
 experiments/paper/**/*_predictions.csv
+
+# NLF TorchScript 가중치(대용량, 비커밋)
+models_nlf/
+models_rtmw3d/
+mmpose_repo/
+MotionBERT/
+models_motionbert/

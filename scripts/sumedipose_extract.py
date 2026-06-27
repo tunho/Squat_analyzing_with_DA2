@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np, pandas as pd, cv2
 
 from squat.domain.types import Point3D
-from squat.pose_estimation import PoseEstimator
+# PoseEstimator(MediaPipe)는 main()에서 lazy import — mediapipe 없는 추정기 venv에서 로더 재사용 위함.
 from paper_extract import extract_feature_rows, calib_med_total
 
 # MediaPipe world 좌측: hip23 knee25 ankle27 shoulder11
@@ -97,6 +97,7 @@ def main():
                     fzip = args.root/"frames"/cam/subject/f"{cam}{subject}A3D{take}.zip"
                     if not fzip.exists(): continue
                     tj = json.loads(z.read(jn))
+                    from squat.pose_estimation import PoseEstimator  # lazy
                     pose = PoseEstimator(static_image_mode=False)   # take마다 새 인스턴스(타임스탬프 단조 보장)
                     try:
                         df = process_take(pose, fzip, tj, subject, cam, take, args.calib_frames)
