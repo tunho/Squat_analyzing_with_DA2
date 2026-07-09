@@ -4,3 +4,11 @@ numpy
 pandas
 scikit-learn
 matplotlib
+scipy
+
+# 신경망 보정기 (SmoothNet·TCN·Diffusion/CARD) 및 통계
+torch
+
+# 표형 딥러닝 보정기 벤치마크
+tabm            # TabM (ICLR 2025)
+pytorch-frame   # ExcelFormer (imports as torch_frame)

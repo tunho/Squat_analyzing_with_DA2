@@ -1,0 +1,6 @@
+  [smoothnet] fold 1/3 fit3d_s03: 7.04° -> 3.23° (+54.2%)
+  [smoothnet] fold 2/3 fit3d_s04: 4.76° -> 5.07° (-6.4%)
+  [smoothnet] fold 3/3 fit3d_s05: 8.38° -> 4.53° (+45.9%)
+
+[smoothnet] LOSO MAE 6.73° -> 4.28° (+36.5%) | device=cuda
+Saved: /home/lee/projects/exe_est/experiments/paper/multiseed_out/smoothnet/fit3d_nlf/seed42/persubject_smoothnet.csv

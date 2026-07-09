@@ -1,0 +1,11 @@
+  [excelformer] fold 1/9 PM_008: 12.04->5.05 (+58.1%) 18s
+  [excelformer] fold 2/9 PM_022: 14.87->6.56 (+55.9%) 19s
+  [excelformer] fold 3/9 PM_029: 19.96->9.43 (+52.7%) 19s
+  [excelformer] fold 4/9 PM_038: 12.67->5.34 (+57.9%) 19s
+  [excelformer] fold 5/9 PM_043: 12.65->8.22 (+35.0%) 18s
+  [excelformer] fold 6/9 PM_105: 13.65->5.07 (+62.8%) 18s
+  [excelformer] fold 7/9 PM_113: 15.90->9.18 (+42.3%) 18s
+  [excelformer] fold 8/9 PM_118: 16.06->5.24 (+67.4%) 19s
+  [excelformer] fold 9/9 PM_126: 15.01->5.41 (+64.0%) 18s
+
+[excelformer] subject-mean improvement: +55.12% | raw 14.76 -> corr 6.61

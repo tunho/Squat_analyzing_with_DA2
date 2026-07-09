@@ -1,0 +1,6 @@
+  [diffusion] fold 1/3 fit3d_s03: 11.37° -> 30.74° (-170.2%)
+  [diffusion] fold 2/3 fit3d_s04: 14.40° -> 12.37° (+14.1%)
+  [diffusion] fold 3/3 fit3d_s05: 7.50° -> 11.90° (-58.5%)
+
+[diffusion] subject-mean improvement: -71.55% | raw 11.09° -> corr 18.33°
+Saved: /home/lee/projects/exe_est/experiments/paper/multiseed_out/diffusion/fit3d_rtmw3d/seed42/persubject_diffusion.csv

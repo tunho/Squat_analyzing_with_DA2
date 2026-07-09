@@ -1,0 +1,12 @@
+  [smoothnet] fold 1/9 PM_008: 8.12° -> 8.59° (-5.8%)
+  [smoothnet] fold 2/9 PM_022: 12.05° -> 11.23° (+6.9%)
+  [smoothnet] fold 3/9 PM_029: 10.47° -> 7.81° (+25.4%)
+  [smoothnet] fold 4/9 PM_038: 8.86° -> 5.82° (+34.3%)
+  [smoothnet] fold 5/9 PM_043: 10.37° -> 7.40° (+28.6%)
+  [smoothnet] fold 6/9 PM_105: 9.63° -> 7.15° (+25.8%)
+  [smoothnet] fold 7/9 PM_113: 16.54° -> 13.71° (+17.1%)
+  [smoothnet] fold 8/9 PM_118: 8.36° -> 6.89° (+17.6%)
+  [smoothnet] fold 9/9 PM_126: 9.21° -> 7.60° (+17.5%)
+
+[smoothnet] LOSO MAE 10.40° -> 8.47° (+18.6%) | device=cuda
+Saved: /home/lee/projects/exe_est/experiments/paper/multiseed_out/smoothnet/ex6_motionbert/seed42/persubject_smoothnet.csv

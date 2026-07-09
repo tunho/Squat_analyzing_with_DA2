@@ -1,0 +1,12 @@
+  [diffusion] fold 1/9 PM_008: 12.04° -> 5.82° (+51.7%)
+  [diffusion] fold 2/9 PM_022: 14.87° -> 5.92° (+60.2%)
+  [diffusion] fold 3/9 PM_029: 19.96° -> 13.28° (+33.5%)
+  [diffusion] fold 4/9 PM_038: 12.67° -> 4.71° (+62.8%)
+  [diffusion] fold 5/9 PM_043: 12.65° -> 8.35° (+34.0%)
+  [diffusion] fold 6/9 PM_105: 13.65° -> 5.46° (+60.0%)
+  [diffusion] fold 7/9 PM_113: 15.90° -> 11.60° (+27.1%)
+  [diffusion] fold 8/9 PM_118: 16.06° -> 4.46° (+72.2%)
+  [diffusion] fold 9/9 PM_126: 15.01° -> 6.17° (+58.9%)
+
+[diffusion] subject-mean improvement: +51.15% | raw 14.76° -> corr 7.31°
+Saved: /home/lee/projects/exe_est/experiments/paper/multiseed_out/diffusion/ex6_rtmw3d/seed42/persubject_diffusion.csv

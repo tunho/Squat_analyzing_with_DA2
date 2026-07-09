@@ -1,0 +1,28 @@
+  [excelformer] fold 1/26 S1: 5.21->7.90 (-51.6%) 141s
+  [excelformer] fold 2/26 S11: 6.87->5.10 (+25.7%) 138s
+  [excelformer] fold 3/26 S12: 9.90->2.85 (+71.2%) 137s
+  [excelformer] fold 4/26 S13: 10.09->5.43 (+46.2%) 138s
+  [excelformer] fold 5/26 S14: 7.89->5.59 (+29.1%) 139s
+  [excelformer] fold 6/26 S15: 12.64->5.23 (+58.6%) 138s
+  [excelformer] fold 7/26 S16: 10.31->5.07 (+50.8%) 139s
+  [excelformer] fold 8/26 S17: 7.20->3.55 (+50.7%) 140s
+  [excelformer] fold 9/26 S18: 14.01->9.69 (+30.8%) 139s
+  [excelformer] fold 10/26 S19: 5.67->6.94 (-22.4%) 138s
+  [excelformer] fold 11/26 S2: 8.07->4.09 (+49.4%) 140s
+  [excelformer] fold 12/26 S20: 13.96->3.97 (+71.6%) 138s
+  [excelformer] fold 13/26 S21: 7.87->4.69 (+40.4%) 139s
+  [excelformer] fold 14/26 S22: 3.78->7.81 (-106.8%) 140s
+  [excelformer] fold 15/26 S23: 15.08->8.80 (+41.7%) 138s
+  [excelformer] fold 16/26 S24: 7.59->10.37 (-36.5%) 138s
+  [excelformer] fold 17/26 S25: 13.70->8.10 (+40.9%) 139s
+  [excelformer] fold 18/26 S26: 9.70->5.94 (+38.8%) 139s
+  [excelformer] fold 19/26 S27: 10.08->5.72 (+43.3%) 138s
+  [excelformer] fold 20/26 S28: 12.08->4.24 (+64.9%) 140s
+  [excelformer] fold 21/26 S3: 4.60->7.59 (-65.1%) 139s
+  [excelformer] fold 22/26 S4: 6.09->4.34 (+28.7%) 139s
+  [excelformer] fold 23/26 S6: 9.84->4.28 (+56.5%) 140s
+  [excelformer] fold 24/26 S7: 7.55->9.54 (-26.4%) 138s
+  [excelformer] fold 25/26 S8: 12.42->5.41 (+56.4%) 139s
+  [excelformer] fold 26/26 S9: 8.03->4.61 (+42.6%) 138s
+
+[excelformer] subject-mean improvement: +24.20% | raw 9.24 -> corr 6.03

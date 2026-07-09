@@ -2,7 +2,7 @@
 사용자 선택 로직 그대로 + 병렬 다운로드(재개=기존파일 skip, 재시도, .part 임시).
 A3 스쿼트: 6캠(C1~C6) × 26명 × 테이크 + WCS(3D GT) + internal(2D) + calib + metadata ≈ 124.5GB.
 """
-import json, re, time, sys
+import json, re, time, sys, os
 from pathlib import Path
 from urllib.parse import quote
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -12,7 +12,8 @@ import requests
 SERVER_URL = "https://dataverse.harvard.edu"
 PERSISTENT_ID = "doi:10.7910/DVN/GRRROM"
 VERSION = "1.0"
-OUT_DIR = Path("/home/lee/exe_est/dataset/raw/sumedipose_a3")
+# repo-relative; override via env EXE_EST_ROOT
+OUT_DIR = Path(os.environ.get("EXE_EST_ROOT", Path(__file__).resolve().parent.parent)) / "dataset/raw/sumedipose_a3"
 SQUAT_ACTION = "A3"
 CAMERAS = [f"C{i}" for i in range(1, 7)]
 SUBJECTS = ["S1","S2","S3","S4","S6","S7","S8","S9","S11","S12","S13","S14","S15","S16",

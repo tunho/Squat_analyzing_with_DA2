@@ -1,0 +1,6 @@
+start Tue Jun 30 05:51:08 AM KST 2026
+[rtmw3d pooled LOSO] 05:51
+/home/lee/projects/exe_est/scripts/paper_train_loso.py:184: DtypeWarning: Columns (0: cam_id, 1: camera, 2: ex_type) have mixed types. Specify dtype option on import or set low_memory=False.
+  raw_df = pd.read_csv(args.features)
+[fold 1/82] CA01: raw 21.50° → corr 5.20° (+75.8%)
+[fold 2/82] CA02: raw 18.25° → corr 5.95° (+67.4%)

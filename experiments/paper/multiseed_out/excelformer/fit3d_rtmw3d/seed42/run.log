@@ -1,0 +1,5 @@
+  [excelformer] fold 1/3 fit3d_s03: 11.37->7.01 (+38.3%) 3s
+  [excelformer] fold 2/3 fit3d_s04: 14.40->11.84 (+17.8%) 1s
+  [excelformer] fold 3/3 fit3d_s05: 7.50->12.68 (-69.0%) 2s
+
+[excelformer] subject-mean improvement: -4.30% | raw 11.09 -> corr 10.51

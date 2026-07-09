@@ -1,0 +1,12 @@
+  [tcn] fold 1/9 PM_008: 12.04° -> 6.82° (+43.4%)
+  [tcn] fold 2/9 PM_022: 14.87° -> 11.72° (+21.2%)
+  [tcn] fold 3/9 PM_029: 19.96° -> 11.57° (+42.0%)
+  [tcn] fold 4/9 PM_038: 12.67° -> 7.12° (+43.8%)
+  [tcn] fold 5/9 PM_043: 12.65° -> 6.55° (+48.2%)
+  [tcn] fold 6/9 PM_105: 13.64° -> 9.14° (+33.0%)
+  [tcn] fold 7/9 PM_113: 15.90° -> 10.45° (+34.3%)
+  [tcn] fold 8/9 PM_118: 16.07° -> 7.32° (+54.4%)
+  [tcn] fold 9/9 PM_126: 15.01° -> 8.36° (+44.3%)
+
+[tcn] LOSO MAE 14.76° -> 8.78° (+40.5%) | device=cuda
+Saved: /home/lee/projects/exe_est/experiments/paper/multiseed_out/tcn/ex6_rtmw3d/seed42/persubject_tcn.csv

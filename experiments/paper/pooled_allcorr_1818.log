@@ -1,0 +1,422 @@
+start Tue Jun 30 06:18:25 PM KST 2026
+[mediapipe pooled all-corr] 18:18
+== method: savgol ==
+   LOSO MAE 13.79° -> 20.76° (-50.5%) | pooled 20.76°
+== method: kalman ==
+   LOSO MAE 13.79° -> 21.89° (-58.8%) | pooled 21.90°
+== method: mlp_direct ==
+[FAIL] baselines mediapipe
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+     scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+        전체    552          12.58          18.73           -48.9        15.77        21.64         -37.2
+     AIHub    368          12.03          18.85           -56.7        14.52        20.06         -38.2
+     FiT3D     12          20.40          21.46            -5.2        34.34        36.04          -5.0
+     REHAB     18          10.07          11.90           -18.2        11.16        13.70         -22.8
+SUMediPose    154          13.56          19.03           -40.3        17.86        25.23         -41.3
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.915 → corrected 0.817  (GT pass율 0.98)
+  cutoff 100°: raw 0.947 → corrected 0.884  (GT pass율 0.99)
+  cutoff 110°: raw 0.975 → corrected 0.938  (GT pass율 1.00)
+  [clin] mediapipe/savgol
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+     scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+        전체    552          12.58          26.61          -111.5        15.77        32.88        -108.5
+     AIHub    368          12.03          29.23          -143.0        14.52        34.80        -139.7
+     FiT3D     12          20.40          21.93            -7.5        34.34        36.45          -6.1
+     REHAB     18          10.07          13.87           -37.7        11.16        15.63         -40.1
+SUMediPose    154          13.56          22.19           -63.6        17.86        30.03         -68.1
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.915 → corrected 0.721  (GT pass율 0.98)
+  cutoff 100°: raw 0.947 → corrected 0.813  (GT pass율 0.99)
+  cutoff 110°: raw 0.975 → corrected 0.891  (GT pass율 1.00)
+  [clin] mediapipe/kalman
+[nlf pooled all-corr] 18:19
+/home/lee/projects/exe_est/scripts/paper_baselines_loso.py:217: DtypeWarning: Columns (0: cam_id, 1: camera, 2: ex_type) have mixed types. Specify dtype option on import or set low_memory=False.
+  raw_df = pd.read_csv(args.features)
+== method: savgol ==
+   LOSO MAE 8.43° -> 8.42° (+0.0%) | pooled 8.74°
+== method: kalman ==
+   LOSO MAE 8.43° -> 12.34° (-46.4%) | pooled 13.09°
+== method: mlp_direct ==
+  [mlp/gt_angle] fold 1/82 CA01
+  [mlp/gt_angle] fold 2/82 CA02
+  [mlp/gt_angle] fold 3/82 CA03
+  [mlp/gt_angle] fold 4/82 CA04
+  [mlp/gt_angle] fold 5/82 CA05
+  [mlp/gt_angle] fold 6/82 CA06
+  [mlp/gt_angle] fold 7/82 CA07
+  [mlp/gt_angle] fold 8/82 CA08
+  [mlp/gt_angle] fold 9/82 CA09
+  [mlp/gt_angle] fold 10/82 CA10
+  [mlp/gt_angle] fold 11/82 CA11
+  [mlp/gt_angle] fold 12/82 CB01
+  [mlp/gt_angle] fold 13/82 CB02
+  [mlp/gt_angle] fold 14/82 CB03
+  [mlp/gt_angle] fold 15/82 CB05
+  [mlp/gt_angle] fold 16/82 CB06
+  [mlp/gt_angle] fold 17/82 CB07
+  [mlp/gt_angle] fold 18/82 CB08
+  [mlp/gt_angle] fold 19/82 CB09
+  [mlp/gt_angle] fold 20/82 CB10
+  [mlp/gt_angle] fold 21/82 CB11
+  [mlp/gt_angle] fold 22/82 CB12
+  [mlp/gt_angle] fold 23/82 CB13
+  [mlp/gt_angle] fold 24/82 CB14
+  [mlp/gt_angle] fold 25/82 CB15
+  [mlp/gt_angle] fold 26/82 CB16
+  [mlp/gt_angle] fold 27/82 CB17
+  [mlp/gt_angle] fold 28/82 CB18
+  [mlp/gt_angle] fold 29/82 CB19
+  [mlp/gt_angle] fold 30/82 CB20
+  [mlp/gt_angle] fold 31/82 CB22
+  [mlp/gt_angle] fold 32/82 CB23
+  [mlp/gt_angle] fold 33/82 CB24
+  [mlp/gt_angle] fold 34/82 CB25
+  [mlp/gt_angle] fold 35/82 CB26
+  [mlp/gt_angle] fold 36/82 CI01
+  [mlp/gt_angle] fold 37/82 CI02
+  [mlp/gt_angle] fold 38/82 CI03
+  [mlp/gt_angle] fold 39/82 CI04
+  [mlp/gt_angle] fold 40/82 CI05
+  [mlp/gt_angle] fold 41/82 CI06
+  [mlp/gt_angle] fold 42/82 CI07
+  [mlp/gt_angle] fold 43/82 CI08
+  [mlp/gt_angle] fold 44/82 CI09
+  [mlp/gt_angle] fold 45/82 PM_008
+  [mlp/gt_angle] fold 46/82 PM_022
+  [mlp/gt_angle] fold 47/82 PM_029
+  [mlp/gt_angle] fold 48/82 PM_038
+  [mlp/gt_angle] fold 49/82 PM_043
+  [mlp/gt_angle] fold 50/82 PM_105
+  [mlp/gt_angle] fold 51/82 PM_113
+  [mlp/gt_angle] fold 52/82 PM_118
+  [mlp/gt_angle] fold 53/82 PM_126
+  [mlp/gt_angle] fold 54/82 S1
+  [mlp/gt_angle] fold 55/82 S11
+  [mlp/gt_angle] fold 56/82 S12
+  [mlp/gt_angle] fold 57/82 S13
+  [mlp/gt_angle] fold 58/82 S14
+  [mlp/gt_angle] fold 59/82 S15
+  [mlp/gt_angle] fold 60/82 S16
+  [mlp/gt_angle] fold 61/82 S17
+  [mlp/gt_angle] fold 62/82 S18
+  [mlp/gt_angle] fold 63/82 S19
+  [mlp/gt_angle] fold 64/82 S2
+  [mlp/gt_angle] fold 65/82 S20
+  [mlp/gt_angle] fold 66/82 S21
+  [mlp/gt_angle] fold 67/82 S22
+  [mlp/gt_angle] fold 68/82 S23
+  [mlp/gt_angle] fold 69/82 S24
+  [mlp/gt_angle] fold 70/82 S25
+  [mlp/gt_angle] fold 71/82 S26
+  [mlp/gt_angle] fold 72/82 S27
+  [mlp/gt_angle] fold 73/82 S28
+  [mlp/gt_angle] fold 74/82 S3
+  [mlp/gt_angle] fold 75/82 S4
+  [mlp/gt_angle] fold 76/82 S6
+  [mlp/gt_angle] fold 77/82 S7
+  [mlp/gt_angle] fold 78/82 S8
+  [mlp/gt_angle] fold 79/82 S9
+  [mlp/gt_angle] fold 80/82 fit3d_s03
+  [mlp/gt_angle] fold 81/82 fit3d_s04
+  [mlp/gt_angle] fold 82/82 fit3d_s05
+   LOSO MAE 8.43° -> 5.10° (+39.4%) | pooled 5.22°
+== method: mlp_residual ==
+  [mlp/residual] fold 1/82 CA01
+  [mlp/residual] fold 2/82 CA02
+  [mlp/residual] fold 3/82 CA03
+  [mlp/residual] fold 4/82 CA04
+  [mlp/residual] fold 5/82 CA05
+  [mlp/residual] fold 6/82 CA06
+  [mlp/residual] fold 7/82 CA07
+  [mlp/residual] fold 8/82 CA08
+  [mlp/residual] fold 9/82 CA09
+  [mlp/residual] fold 10/82 CA10
+  [mlp/residual] fold 11/82 CA11
+  [mlp/residual] fold 12/82 CB01
+  [mlp/residual] fold 13/82 CB02
+  [mlp/residual] fold 14/82 CB03
+  [mlp/residual] fold 15/82 CB05
+  [mlp/residual] fold 16/82 CB06
+  [mlp/residual] fold 17/82 CB07
+  [mlp/residual] fold 18/82 CB08
+  [mlp/residual] fold 19/82 CB09
+  [mlp/residual] fold 20/82 CB10
+  [mlp/residual] fold 21/82 CB11
+  [mlp/residual] fold 22/82 CB12
+  [mlp/residual] fold 23/82 CB13
+  [mlp/residual] fold 24/82 CB14
+  [mlp/residual] fold 25/82 CB15
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 26/82 CB16
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 27/82 CB17
+  [mlp/residual] fold 28/82 CB18
+  [mlp/residual] fold 29/82 CB19
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 30/82 CB20
+  [mlp/residual] fold 31/82 CB22
+  [mlp/residual] fold 32/82 CB23
+  [mlp/residual] fold 33/82 CB24
+  [mlp/residual] fold 34/82 CB25
+  [mlp/residual] fold 35/82 CB26
+  [mlp/residual] fold 36/82 CI01
+  [mlp/residual] fold 37/82 CI02
+  [mlp/residual] fold 38/82 CI03
+  [mlp/residual] fold 39/82 CI04
+  [mlp/residual] fold 40/82 CI05
+  [mlp/residual] fold 41/82 CI06
+  [mlp/residual] fold 42/82 CI07
+  [mlp/residual] fold 43/82 CI08
+  [mlp/residual] fold 44/82 CI09
+  [mlp/residual] fold 45/82 PM_008
+  [mlp/residual] fold 46/82 PM_022
+  [mlp/residual] fold 47/82 PM_029
+  [mlp/residual] fold 48/82 PM_038
+  [mlp/residual] fold 49/82 PM_043
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 50/82 PM_105
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 51/82 PM_113
+  [mlp/residual] fold 52/82 PM_118
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 53/82 PM_126
+  [mlp/residual] fold 54/82 S1
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 55/82 S11
+  [mlp/residual] fold 56/82 S12
+  [mlp/residual] fold 57/82 S13
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 58/82 S14
+  [mlp/residual] fold 59/82 S15
+  [mlp/residual] fold 60/82 S16
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 61/82 S17
+  [mlp/residual] fold 62/82 S18
+  [mlp/residual] fold 63/82 S19
+  [mlp/residual] fold 64/82 S2
+  [mlp/residual] fold 65/82 S20
+  [mlp/residual] fold 66/82 S21
+  [mlp/residual] fold 67/82 S22
+  [mlp/residual] fold 68/82 S23
+  [mlp/residual] fold 69/82 S24
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 70/82 S25
+  [mlp/residual] fold 71/82 S26
+  [mlp/residual] fold 72/82 S27
+  [mlp/residual] fold 73/82 S28
+  [mlp/residual] fold 74/82 S3
+  [mlp/residual] fold 75/82 S4
+/home/lee/projects/exe_est/.venv-paper/lib/python3.12/site-packages/sklearn/neural_network/_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (200) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  [mlp/residual] fold 76/82 S6
+  [mlp/residual] fold 77/82 S7
+  [mlp/residual] fold 78/82 S8
+  [mlp/residual] fold 79/82 S9
+  [mlp/residual] fold 80/82 fit3d_s03
+  [mlp/residual] fold 81/82 fit3d_s04
+  [mlp/residual] fold 82/82 fit3d_s05
+   LOSO MAE 8.43° -> 5.09° (+39.5%) | pooled 5.28°
+== method: extratrees_residual ==
+  [extratrees/residual] fold 1/82 CA01
+  [extratrees/residual] fold 2/82 CA02
+  [extratrees/residual] fold 3/82 CA03
+  [extratrees/residual] fold 4/82 CA04
+  [extratrees/residual] fold 5/82 CA05
+  [extratrees/residual] fold 6/82 CA06
+  [extratrees/residual] fold 7/82 CA07
+  [extratrees/residual] fold 8/82 CA08
+  [extratrees/residual] fold 9/82 CA09
+  [extratrees/residual] fold 10/82 CA10
+  [extratrees/residual] fold 11/82 CA11
+  [extratrees/residual] fold 12/82 CB01
+  [extratrees/residual] fold 13/82 CB02
+  [extratrees/residual] fold 14/82 CB03
+  [extratrees/residual] fold 15/82 CB05
+  [extratrees/residual] fold 16/82 CB06
+  [extratrees/residual] fold 17/82 CB07
+  [extratrees/residual] fold 18/82 CB08
+  [extratrees/residual] fold 19/82 CB09
+  [extratrees/residual] fold 20/82 CB10
+  [extratrees/residual] fold 21/82 CB11
+  [extratrees/residual] fold 22/82 CB12
+  [extratrees/residual] fold 23/82 CB13
+  [extratrees/residual] fold 24/82 CB14
+  [extratrees/residual] fold 25/82 CB15
+  [extratrees/residual] fold 26/82 CB16
+  [extratrees/residual] fold 27/82 CB17
+  [extratrees/residual] fold 28/82 CB18
+  [extratrees/residual] fold 29/82 CB19
+  [extratrees/residual] fold 30/82 CB20
+  [extratrees/residual] fold 31/82 CB22
+  [extratrees/residual] fold 32/82 CB23
+  [extratrees/residual] fold 33/82 CB24
+  [extratrees/residual] fold 34/82 CB25
+  [extratrees/residual] fold 35/82 CB26
+  [extratrees/residual] fold 36/82 CI01
+  [extratrees/residual] fold 37/82 CI02
+  [extratrees/residual] fold 38/82 CI03
+  [extratrees/residual] fold 39/82 CI04
+  [extratrees/residual] fold 40/82 CI05
+  [extratrees/residual] fold 41/82 CI06
+  [extratrees/residual] fold 42/82 CI07
+  [extratrees/residual] fold 43/82 CI08
+  [extratrees/residual] fold 44/82 CI09
+  [extratrees/residual] fold 45/82 PM_008
+  [extratrees/residual] fold 46/82 PM_022
+  [extratrees/residual] fold 47/82 PM_029
+  [extratrees/residual] fold 48/82 PM_038
+  [extratrees/residual] fold 49/82 PM_043
+  [extratrees/residual] fold 50/82 PM_105
+  [extratrees/residual] fold 51/82 PM_113
+  [extratrees/residual] fold 52/82 PM_118
+  [extratrees/residual] fold 53/82 PM_126
+  [extratrees/residual] fold 54/82 S1
+  [extratrees/residual] fold 55/82 S11
+  [extratrees/residual] fold 56/82 S12
+  [extratrees/residual] fold 57/82 S13
+  [extratrees/residual] fold 58/82 S14
+  [extratrees/residual] fold 59/82 S15
+  [extratrees/residual] fold 60/82 S16
+  [extratrees/residual] fold 61/82 S17
+  [extratrees/residual] fold 62/82 S18
+  [extratrees/residual] fold 63/82 S19
+  [extratrees/residual] fold 64/82 S2
+  [extratrees/residual] fold 65/82 S20
+  [extratrees/residual] fold 66/82 S21
+  [extratrees/residual] fold 67/82 S22
+  [extratrees/residual] fold 68/82 S23
+  [extratrees/residual] fold 69/82 S24
+  [extratrees/residual] fold 70/82 S25
+  [extratrees/residual] fold 71/82 S26
+  [extratrees/residual] fold 72/82 S27
+  [extratrees/residual] fold 73/82 S28
+  [extratrees/residual] fold 74/82 S3
+  [extratrees/residual] fold 75/82 S4
+  [extratrees/residual] fold 76/82 S6
+  [extratrees/residual] fold 77/82 S7
+  [extratrees/residual] fold 78/82 S8
+  [extratrees/residual] fold 79/82 S9
+  [extratrees/residual] fold 80/82 fit3d_s03
+  [extratrees/residual] fold 81/82 fit3d_s04
+  [extratrees/residual] fold 82/82 fit3d_s05
+   LOSO MAE 8.43° -> 4.31° (+48.9%) | pooled 4.46°
+
+=== method comparison (표2) ===
+             method  loso_mae_corrected  loso_improvement_pct  pooled_mae_corrected  pooled_rmse_corrected  deep_mae_corrected
+             savgol               8.423                  0.04                 8.740                 11.598              11.841
+             kalman              12.336                -46.40                13.085                 19.207              16.918
+         mlp_direct               5.103                 39.44                 5.216                  7.205               6.158
+       mlp_residual               5.094                 39.54                 5.278                  7.225               6.066
+extratrees_residual               4.308                 48.87                 4.465                  6.162               5.197
+
+Saved: /home/lee/projects/exe_est/experiments/paper/pooled_allcorr_nlf/method_comparison.csv
+[OK] baselines nlf
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+   전체    527          10.86          10.87            -0.1         9.27         9.27           0.0
+AIHub    506          10.90          10.92            -0.2         9.26         9.28          -0.2
+FiT3D      3          17.85          17.85             0.0        12.84        12.84           0.0
+REHAB     18           8.62           8.28             3.9         9.08         8.55           5.8
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.983 → corrected 0.983  (GT pass율 0.96)
+  cutoff 100°: raw 0.987 → corrected 0.987  (GT pass율 0.97)
+  cutoff 110°: raw 0.991 → corrected 0.994  (GT pass율 0.98)
+  [clin] nlf/savgol
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+   전체    527          10.86           9.13            15.9         9.27         7.99          13.8
+AIHub    506          10.90           9.13            16.2         9.26         7.96          14.0
+FiT3D      3          17.85          17.31             3.0        12.84        12.30           4.2
+REHAB     18           8.62           7.77             9.9         9.08         7.95          12.4
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.983 → corrected 0.979  (GT pass율 0.96)
+  cutoff 100°: raw 0.987 → corrected 0.987  (GT pass율 0.97)
+  cutoff 110°: raw 0.991 → corrected 0.994  (GT pass율 0.98)
+  [clin] nlf/kalman
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+   전체    527          10.86           5.26            51.6         9.27         6.17          33.4
+AIHub    506          10.90           5.28            51.6         9.26         6.19          33.2
+FiT3D      3          17.85           5.34            70.1        12.84         4.90          61.8
+REHAB     18           8.62           4.43            48.6         9.08         5.84          35.7
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.983 → corrected 0.979  (GT pass율 0.96)
+  cutoff 100°: raw 0.987 → corrected 0.985  (GT pass율 0.97)
+  cutoff 110°: raw 0.991 → corrected 0.989  (GT pass율 0.98)
+  [clin] nlf/mlp_residual
+=== 깊이(최소각)·ROM 오차: raw → corrected ===
+scope  n_seq  depth_mae_raw  depth_mae_cor  depth_impr_pct  rom_mae_raw  rom_mae_cor  rom_impr_pct
+   전체    527          10.86           4.65            57.2         9.27         7.27          21.6
+AIHub    506          10.90           4.71            56.8         9.26         7.36          20.5
+FiT3D      3          17.85           5.85            67.2        12.84         4.20          67.3
+REHAB     18           8.62           2.84            67.1         9.08         5.15          43.3
+
+=== 깊이 분류 정확도 (pass = min각 <= cutoff) ===
+  cutoff 90°: raw 0.983 → corrected 0.977  (GT pass율 0.96)
+  cutoff 100°: raw 0.987 → corrected 0.994  (GT pass율 0.97)
+  cutoff 110°: raw 0.991 → corrected 0.998  (GT pass율 0.98)
+  [clin] nlf/extratrees_residual
+[rtmw3d pooled all-corr] 05:36
+/home/lee/projects/exe_est/scripts/paper_baselines_loso.py:217: DtypeWarning: Columns (0: cam_id, 1: camera, 2: ex_type) have mixed types. Specify dtype option on import or set low_memory=False.
+  raw_df = pd.read_csv(args.features)
+== method: savgol ==
+   LOSO MAE 16.22° -> 16.14° (+0.5%) | pooled 15.29°
+== method: kalman ==
+   LOSO MAE 16.22° -> 19.12° (-17.9%) | pooled 18.84°
+== method: mlp_direct ==
+  [mlp/gt_angle] fold 1/82 CA01
+  [mlp/gt_angle] fold 2/82 CA02
+  [mlp/gt_angle] fold 3/82 CA03
+  [mlp/gt_angle] fold 4/82 CA04
+  [mlp/gt_angle] fold 5/82 CA05
+  [mlp/gt_angle] fold 6/82 CA06
+  [mlp/gt_angle] fold 7/82 CA07
+  [mlp/gt_angle] fold 8/82 CA08
+  [mlp/gt_angle] fold 9/82 CA09
+  [mlp/gt_angle] fold 10/82 CA10
+  [mlp/gt_angle] fold 11/82 CA11
+  [mlp/gt_angle] fold 12/82 CB01
+  [mlp/gt_angle] fold 13/82 CB02
+  [mlp/gt_angle] fold 14/82 CB03
+  [mlp/gt_angle] fold 15/82 CB05
+  [mlp/gt_angle] fold 16/82 CB06
+  [mlp/gt_angle] fold 17/82 CB07
+  [mlp/gt_angle] fold 18/82 CB08
+  [mlp/gt_angle] fold 19/82 CB09
+  [mlp/gt_angle] fold 20/82 CB10
+  [mlp/gt_angle] fold 21/82 CB11
+  [mlp/gt_angle] fold 22/82 CB12
+  [mlp/gt_angle] fold 23/82 CB13
+  [mlp/gt_angle] fold 24/82 CB14
+  [mlp/gt_angle] fold 25/82 CB15
+  [mlp/gt_angle] fold 26/82 CB16
+  [mlp/gt_angle] fold 27/82 CB17
+  [mlp/gt_angle] fold 28/82 CB18
+  [mlp/gt_angle] fold 29/82 CB19
+  [mlp/gt_angle] fold 30/82 CB20
+  [mlp/gt_angle] fold 31/82 CB22
+  [mlp/gt_angle] fold 32/82 CB23
+  [mlp/gt_angle] fold 33/82 CB24
+  [mlp/gt_angle] fold 34/82 CB25
+  [mlp/gt_angle] fold 35/82 CB26
+  [mlp/gt_angle] fold 36/82 CI01
+  [mlp/gt_angle] fold 37/82 CI02
+  [mlp/gt_angle] fold 38/82 CI03
+  [mlp/gt_angle] fold 39/82 CI04
+  [mlp/gt_angle] fold 40/82 CI05

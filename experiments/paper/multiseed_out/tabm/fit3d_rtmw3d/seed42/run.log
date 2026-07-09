@@ -1,0 +1,5 @@
+  [tabm] fold 1/3 fit3d_s03: 11.37->86.31 (-658.9%) 2s
+  [tabm] fold 2/3 fit3d_s04: 14.40->13.08 (+9.2%) 1s
+  [tabm] fold 3/3 fit3d_s05: 7.50->14.36 (-91.4%) 1s
+
+[tabm] subject-mean improvement: -247.03% | raw 11.09 -> corr 37.92
