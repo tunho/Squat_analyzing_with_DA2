@@ -23,6 +23,16 @@ Pooled across 4 datasets (84 subjects), this cuts knee-angle MAE from
 range (knee < 110°). The gain is consistent across an 80–130° threshold sweep
 (Δ < 3 %p), so it is **robust, not cherry-picked**.
 
+We benchmark **9 correctors** (classic smoothers → 2025 tabular deep learning:
+SavGol, Kalman, MLP, ExtraTrees, SmoothNet, TCN, Diffusion/CARD, ExcelFormer,
+TabM) × **4 pose estimators** × **4 datasets** under 3 protocols (within-domain,
+pooled, leave-one-dataset-out) + few-shot recovery. **ExtraTrees is the most
+robust** everywhere; cross-domain transfer fails for all methods (a depth-shift
+limit). All learning runs are **seed-fixed (42) and reproduced bit-exact** on the
+same GPU — see [REPRODUCE.md](REPRODUCE.md). Clinically, correction reaches
+**ICC 0.97** (agreement "excellent"), doubles the ±5° pass rate (33% → 53%), and
+removes the −13° bias.
+
 ## Datasets
 
 | Dataset | Role | GT source | Subjects |
@@ -46,15 +56,31 @@ MediaPipe output at inference, so the correction is camera-only at deploy time.
 | REHAB24-6 | 12.29° | 8.11° | **+34.0%** | +61.9% |
 | FiT3D | 20.25° | 11.94° | **+41.0%** | +62.1% |
 
-### 2. Baseline comparison (pooled LOSO MAE °)
+### 2. Corrector benchmark — 9 correctors × 3 protocols (improvement %, seed 42)
 
-| Range | raw | savgol | affine | calib | linreg | **ours** |
-|---|--:|--:|--:|--:|--:|--:|
-| Full | 13.74 | 24.20 | 13.45 | 17.41 | 11.89 | **8.47** |
-| Deep <110° | 19.42 | 39.20 | 18.92 | 29.73 | 15.55 | **10.97** |
+Every corrector is evaluated under identical splits across all 4 datasets and 4
+pose estimators (MediaPipe, NLF, RTMW3D, MotionBERT). Values are mean improvement
+% over the raw estimator (negative = worse).
 
-The advantage over a linear residual baseline *widens* in the deep range
-(+43.5% vs +19.9% over raw — a 2.2× margin).
+| Corrector (year) | ① within | ② pooled (5-fold) | ③ LODO (cross-domain) |
+|---|--:|--:|--:|
+| **ExtraTrees** (trees) | **+39.2** | +49.5 | **+3.6** |
+| ExcelFormer (KDD'24) | +34.7 | +46.6 | −0.1 |
+| SmoothNet (ECCV'22) | +26.7 | +7.6 | −0.3 |
+| TCN (Bai'18) | +25.5 | +7.7 | −1.3 |
+| Diffusion / CARD (NeurIPS'22) | +18.4 | +45.3 | −11.1 |
+| TabM (ICLR'25) | +15.6 | **+51.6** | +1.6 |
+| MLP (sklearn) | −5.2 | +42.9 | −18.4 |
+| SavGol (smoother) | −7.4 | −65.3 | N/A |
+| Kalman (smoother) | −25.4 | −73.5 | N/A |
+
+**Takeaways.** (i) In-domain & pooled work well; **ExtraTrees is the most robust**
+— wins small data, ties the 2025 SOTA (TabM) at scale, and is best cross-domain.
+(ii) Windowed smoothers (SmoothNet/TCN) collapse under pooled mixing; classic
+smoothers (SavGol/Kalman) hurt. (iii) **Cross-domain (LODO) is a structural
+failure for all correctors** (best only +3.6%) — a depth covariate-shift limit,
+not a corrector flaw. (iv) The gain scales with raw error: correction helps most
+where the estimator is worst (r = 0.64, p ≪ 0.001).
 
 ### 3. Cross-dataset generalization — an honest boundary
 
@@ -101,10 +127,10 @@ Model bundle (.pkl)
 predictions.csv  [mp_knee_angle, corrected_angle, gt_angle, predicted_residual]
 ```
 
-The default feature set (`enhanced_safe`, 39 features) combines current/lagged
+The paper default feature set (`v6`, 21 features) combines current/lagged
 hip-relative coordinates, joint visibility, segment-length stability and angular
-velocity. A real-time-safe variant (`enhanced_causal`, 34 features) drops
-offline-only normalisation for streaming use.
+velocity. Extended (`enhanced_safe`, 37) and real-time-safe (`enhanced_causal`,
+34, drops offline-only normalisation for streaming) variants are also available.
 
 ## Repository layout
 
@@ -149,6 +175,20 @@ python paper_evaluate.py \
   --model ../experiments/paper/loso_out/v6_single_residual_model.pkl \
   --output ../experiments/paper/eval_out
 ```
+
+Full benchmark (9 correctors × 4 estimators × 4 datasets × 3 protocols),
+figures and statistics: see **[REPRODUCE.md](REPRODUCE.md)**.
+
+## Reproducibility
+
+- All learning code fixes **seed 42** via `scripts/seed_util.set_all_seeds()`
+  (random / numpy / torch / CUDA + `cudnn.deterministic=True`).
+- Verified **bit-exact** on re-run for the same GPU (incl. neural correctors like
+  TabM). sklearn (ExtraTrees, MLP) and smoothers are hardware-independent.
+- **Caveat:** GPU neural correctors may differ slightly across GPU/cuDNN versions
+  (V100 vs 4070Ti confirmed); reported numbers use a **4070Ti**.
+- What is / isn't seeded and where each result lives:
+  `experiments/paper/재현성_재실행_대장.md`.
 
 ## License & data
 

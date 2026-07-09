@@ -89,7 +89,7 @@ def train_tcn(A, R, window, device, epochs=60, lr=5e-4, bs=256):
 
 def run_loso(df, window, stride, device, epochs):
     subjects = sorted(df["subject_id"].unique())
-    rows = []
+    rows = []; preds = []
     for i, s in enumerate(subjects, 1):
         tr = df[df["subject_id"] != s]
         te = df[df["subject_id"] == s]
@@ -98,6 +98,7 @@ def run_loso(df, window, stride, device, epochs):
             continue
         model, stats = train_tcn(A, R, window, device, epochs=epochs)
         pe = predict_seq(model, stats, te, window, stride, device)
+        preds.append(pe)
         raw = mae(pe["gt_angle"], pe["mp_knee_angle"]); corr = mae(pe["gt_angle"], pe["corrected_angle"])
         rows.append({"subject_id": str(s), "mae_raw": raw, "mae_corrected": corr,
                      "rmse_raw": rmse(pe["gt_angle"], pe["mp_knee_angle"]),
@@ -105,7 +106,7 @@ def run_loso(df, window, stride, device, epochs):
                      "improvement_pct": (raw - corr) / raw * 100 if raw else 0.0})
         print(f"  [tcn] fold {i}/{len(subjects)} {s}: {raw:.2f}° -> {corr:.2f}° "
               f"({rows[-1]['improvement_pct']:+.1f}%)", flush=True)
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), (pd.concat(preds, ignore_index=True) if preds else pd.DataFrame())
 
 
 def main():
@@ -116,7 +117,9 @@ def main():
     p.add_argument("--stride", type=int, default=8)
     p.add_argument("--epochs", type=int, default=60)
     p.add_argument("--device", default="cuda")
+    p.add_argument("--seed", type=int, default=None)
     args = p.parse_args()
+    from seed_util import set_all_seeds; set_all_seeds(args.seed)
 
     args.output.mkdir(parents=True, exist_ok=True)
     device = args.device if torch.cuda.is_available() else "cpu"
@@ -125,10 +128,13 @@ def main():
     miss = need - set(df.columns)
     if miss:
         raise ValueError(f"missing cols: {sorted(miss)}")
-    subj = run_loso(df, args.window, args.stride, device, args.epochs)
+    subj, preds = run_loso(df, args.window, args.stride, device, args.epochs)
     subj.to_csv(args.output / "persubject_tcn.csv", index=False)
     if subj.empty:
         print("[tcn] 빈 결과 — 윈도우 생성 실패(시퀀스 부족?). 스킵."); return
+    if len(preds):
+        keep=[c for c in ["subject_id","view_type","camera","dataset","frame_index","gt_angle","mp_knee_angle","corrected_angle"] if c in preds.columns]
+        preds[keep].to_csv(args.output / "predictions_tcn.csv", index=False)
     raw = subj["mae_raw"].mean(); corr = subj["mae_corrected"].mean()
     print(f"\n[tcn] LOSO MAE {raw:.2f}° -> {corr:.2f}° ({(raw-corr)/raw*100:+.1f}%) | device={device}")
     print(f"Saved: {args.output / 'persubject_tcn.csv'}")

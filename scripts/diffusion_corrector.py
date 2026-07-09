@@ -146,39 +146,43 @@ class DiffusionCorrector:
         return self
 
     @torch.no_grad()
-    def predict(self, X):
+    def predict(self, X, chunk=8000):
+        """chunk: X행을 나눠 역확산 (큰 test set OOM 방지). 확률적 추정이라 배치해도 통계적 동일."""
         self.model.eval()
-        Xn = torch.tensor((X - self.xm) / self.xs, dtype=torch.float32, device=self.device)
-        m = Xn.shape[0]
+        Xn_all = torch.tensor((X - self.xm) / self.xs, dtype=torch.float32, device=self.device)
         S = self.n_samples
-        xrep = Xn.repeat_interleave(S, dim=0)
-        f = torch.clamp(self.mean(xrep), -3.5, 3.5)          # 앵커 f(x), OOD 폭주 방지 클램프
-        y = f + torch.randn_like(f)                          # y_T ~ N(f(x), I)
-        for ti in reversed(range(self.T)):
-            t = torch.full((xrep.shape[0],), ti, device=self.device, dtype=torch.long)
-            eps = self.model(y, t, xrep, f)
-            sa, s1 = self.sqrt_acp[ti], self.sqrt_1macp[ti]
-            # y_0 복원 (CARD): y0 = (y_t - (1-√ᾱ_t)f - √(1-ᾱ_t)ε) / √ᾱ_t
-            y0 = (y - (1 - sa) * f - s1 * eps) / sa
-            y0 = torch.clamp(y0, self.y0_lo, self.y0_hi)     # clip_denoised: 발산 방지
-            if ti > 0:
-                b = self.betas[ti]; acp = self.acp[ti]; acp_p = self.acp_prev[ti]
-                sa_p = self.sqrt_acp_prev[ti]; salpha = self.sqrt_alphas[ti]
-                g0 = b * sa_p / (1 - acp)
-                g1 = (1 - acp_p) * salpha / (1 - acp)
-                g2 = 1 + (sa - 1) * (salpha + sa_p) / (1 - acp)
-                mean = g0 * y0 + g1 * y + g2 * f              # CARD posterior mean
-                var = (1 - acp_p) / (1 - acp) * b
-                y = mean + torch.sqrt(var) * torch.randn_like(y)
-            else:
-                y = y0
-        y = y.reshape(m, S).mean(1).cpu().numpy()
+        outs = []
+        for i in range(0, Xn_all.shape[0], chunk):
+            Xn = Xn_all[i:i + chunk]
+            m = Xn.shape[0]
+            xrep = Xn.repeat_interleave(S, dim=0)
+            f = torch.clamp(self.mean(xrep), -3.5, 3.5)      # 앵커 f(x), OOD 폭주 방지 클램프
+            y = f + torch.randn_like(f)                      # y_T ~ N(f(x), I)
+            for ti in reversed(range(self.T)):
+                t = torch.full((xrep.shape[0],), ti, device=self.device, dtype=torch.long)
+                eps = self.model(y, t, xrep, f)
+                sa, s1 = self.sqrt_acp[ti], self.sqrt_1macp[ti]
+                y0 = (y - (1 - sa) * f - s1 * eps) / sa
+                y0 = torch.clamp(y0, self.y0_lo, self.y0_hi)
+                if ti > 0:
+                    b = self.betas[ti]; acp = self.acp[ti]; acp_p = self.acp_prev[ti]
+                    sa_p = self.sqrt_acp_prev[ti]; salpha = self.sqrt_alphas[ti]
+                    g0 = b * sa_p / (1 - acp)
+                    g1 = (1 - acp_p) * salpha / (1 - acp)
+                    g2 = 1 + (sa - 1) * (salpha + sa_p) / (1 - acp)
+                    mean = g0 * y0 + g1 * y + g2 * f
+                    var = (1 - acp_p) / (1 - acp) * b
+                    y = mean + torch.sqrt(var) * torch.randn_like(y)
+                else:
+                    y = y0
+            outs.append(y.reshape(m, S).mean(1))
+        y = torch.cat(outs).cpu().numpy()
         return y * self.ys + self.ym
 
 
 def run_loso(df, feats, device, epochs, T, n_samples):
     subjects = sorted(df["subject_id"].unique())
-    rows = []
+    rows = []; preds = []
     for i, s in enumerate(subjects, 1):
         tr = df[df["subject_id"] != s]
         te = df[df["subject_id"] == s].copy()
@@ -193,9 +197,10 @@ def run_loso(df, feats, device, epochs, T, n_samples):
                      "rmse_raw": rmse(te["gt_angle"], te["mp_knee_angle"]),
                      "rmse_corrected": rmse(te["gt_angle"], te["corrected_angle"]),
                      "improvement_pct": (raw - corr) / raw * 100 if raw else 0.0})
+        preds.append(te)
         print(f"  [diffusion] fold {i}/{len(subjects)} {s}: {raw:.2f}° -> {corr:.2f}° "
               f"({rows[-1]['improvement_pct']:+.1f}%)", flush=True)
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), (pd.concat(preds, ignore_index=True) if preds else pd.DataFrame())
 
 
 def main():
@@ -207,13 +212,18 @@ def main():
     p.add_argument("--epochs", type=int, default=200)
     p.add_argument("--timesteps", type=int, default=100)
     p.add_argument("--n-samples", type=int, default=20)
+    p.add_argument("--seed", type=int, default=None)
     args = p.parse_args()
+    from seed_util import set_all_seeds; set_all_seeds(args.seed)
 
     df = prepare_v6_data(pd.read_csv(args.features, low_memory=False), feature_set=args.feature_set)
     feats = FEATURE_SETS[args.feature_set]
     args.output.mkdir(parents=True, exist_ok=True)
-    subj = run_loso(df, feats, args.device, args.epochs, args.timesteps, args.n_samples)
+    subj, preds = run_loso(df, feats, args.device, args.epochs, args.timesteps, args.n_samples)
     subj.to_csv(args.output / "persubject_diffusion.csv", index=False)
+    if len(preds):
+        keep=[c for c in ["subject_id","view_type","camera","dataset","frame_index","gt_angle","mp_knee_angle","corrected_angle"] if c in preds.columns]
+        preds[keep].to_csv(args.output / "predictions_diffusion.csv", index=False)
     print(f"\n[diffusion] subject-mean improvement: {subj['improvement_pct'].mean():+.2f}% "
           f"| raw {subj['mae_raw'].mean():.2f}° -> corr {subj['mae_corrected'].mean():.2f}°")
     print(f"Saved: {args.output / 'persubject_diffusion.csv'}")

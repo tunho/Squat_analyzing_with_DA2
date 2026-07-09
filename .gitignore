@@ -14,40 +14,13 @@ results_strict/
 *.pkl
 dataset/
 outputs/
+data/
+
+# 모든 실험 파이프라인 .py 는 공개(추적). 서브폴더/캐시만 제외.
 scripts/*
-!scripts/paper_common.py
-!scripts/paper_extract.py
-!scripts/paper_train_loso.py
-!scripts/paper_evaluate.py
-!scripts/paper_make_tables.py
-!scripts/paper_ablation.py
-!scripts/paper_analyze_failure.py
-!scripts/paper_view_models.py
-!scripts/paper_extract_fit3d.py
-!scripts/generate_paper_plot.py
-!scripts/paper_extract_aihub.py
-!scripts/paper_compare_regressors.py
-# 다도메인(AIHub·SUMediPose) 수집·전이 실험 파이프라인
-!scripts/aihub_extract_raw_dump.py
-!scripts/aihub_features_from_dump.py
-!scripts/sumedipose_dump.py
-!scripts/sumedipose_extract.py
-!scripts/download_sumedipose_a3.py
-!scripts/lodo_eval.py
-!scripts/fewshot_recovery.py
-!scripts/baselines_loso.py
-!scripts/causal_loso_capped.py
-!scripts/camera_geom.py
-!scripts/clinical_downstream.py
-!scripts/stats_ci.py
-!scripts/make_figures.py
-# 보정기 벤치마크·통계 코드 (J-BHI 표2/표3)
-!scripts/paper_baselines_loso.py
-!scripts/smoothnet_corrector.py
-!scripts/tcn_corrector.py
-!scripts/diffusion_corrector.py
-!scripts/corrector_stats.py
-!scripts/agreement_stats.py
+!scripts/*.py
+!scripts/README.md
+scripts/__pycache__/
 
 # 데이터셋 파생 feature CSV(대용량·라이선스) — 원격에 올리지 않음 (추출기로 재생성)
 experiments/paper/features_aihub_squat.csv
@@ -58,8 +31,15 @@ experiments/paper/features_*.csv
 experiments/paper/features_*_causal.csv
 experiments/paper/features_*_offstd.csv
 experiments/paper/features_pooled*.csv
+
 # 서버 이식 번들(스크립트·CSV 복사본, 재생성 가능) — 추적 안 함
+_server_bundle/
 server_bundle/
+server_full_bundle/
+server_gen_bundle/
+*_bundle/
+mb_local_run/
+
 # 대용량 원본 덤프 / 추출 데이터 (재생성 가능, 라이선스) — 원격에 올리지 않음
 experiments/paper/aihub_raw_dump/
 experiments/paper/sumedipose_raw_dump/
@@ -67,10 +47,12 @@ experiments/paper/_aihub_lists/
 # 프레임별 예측(피처 포함, 대용량) — 중첩 경로 포함, 집계물(metrics/summary)만 추적
 experiments/paper/**/predictions.csv
 experiments/paper/**/*_predictions.csv
+experiments/paper/**/predictions_*.csv
+experiments/paper/**/loso_predictions.csv
 
-# NLF TorchScript 가중치(대용량, 비커밋)
+# 대용량 모델 가중치 / 벤더링된 외부 repo (비커밋, 별도 다운로드)
 models_nlf/
 models_rtmw3d/
+models_motionbert/
 mmpose_repo/
 MotionBERT/
-models_motionbert/

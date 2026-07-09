@@ -5,11 +5,12 @@ from sklearn.preprocessing import StandardScaler
 from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
 
-# Config
-PROJECT_ROOT = Path("/home/lee/exe_est")
+# Config (repo-relative; override via env EXE_EST_ROOT / EXE_EST_ARTIFACT_DIR)
+PROJECT_ROOT = Path(os.environ.get("EXE_EST_ROOT", Path(__file__).resolve().parent.parent))
 DATA_PATH = PROJECT_ROOT / "outputs/ml_correction/v15_mega/ultimate_features_all.csv"
-ARTIFACT_DIR = Path("/home/lee/.gemini/antigravity/brain/39a1a6e9-f4b7-4441-8548-50413c11fba7")
+ARTIFACT_DIR = Path(os.environ.get("EXE_EST_ARTIFACT_DIR", PROJECT_ROOT / "experiments/paper/presentation"))
 SAVE_PATH = ARTIFACT_DIR / "fig1_squat_correction.png"
 
 FEATURES = [

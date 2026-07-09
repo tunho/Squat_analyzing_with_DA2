@@ -210,6 +210,7 @@ def main() -> None:
     p.add_argument("--kalman-r", type=float, default=25.0)
     p.add_argument("--time-aware", action="store_true")
     p.add_argument("--fps", type=float, default=30.0)
+    p.add_argument("--save-predictions", action="store_true", help="predictions_{method}.csv 저장(clinical용)")
     args = p.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -233,12 +234,18 @@ def main() -> None:
             pred = run_learning_loso(df, feature_cols, "mlp", "gt_angle", args.random_state)
         elif method == "extratrees_residual":
             pred = run_learning_loso(df, feature_cols, "extratrees", "residual", args.random_state)
+        elif method == "extratrees_direct":
+            pred = run_learning_loso(df, feature_cols, "extratrees", "gt_angle", args.random_state)
         else:
             raise ValueError(f"unknown method: {method}")
 
         summary, subj_df = summarize(pred, method, args.deep_flexion_threshold)
         summaries.append(summary)
         subj_df.to_csv(args.output / f"persubject_{method}.csv", index=False)
+        if getattr(args, "save_predictions", False):
+            keep = [c for c in ["subject_id","view_type","camera","dataset","frame_index",
+                                "gt_angle","mp_knee_angle","corrected_angle"] if c in pred.columns]
+            pred[keep].to_csv(args.output / f"predictions_{method}.csv", index=False)
         print(f"   LOSO MAE {summary['loso_mae_raw']:.2f}° -> "
               f"{summary['loso_mae_corrected']:.2f}° ({summary['loso_improvement_pct']:+.1f}%) | "
               f"pooled {summary['pooled']['mae_corrected']:.2f}°", flush=True)

@@ -190,7 +190,9 @@ def main():
     p.add_argument("--stride", type=int, default=8)
     p.add_argument("--epochs", type=int, default=60)
     p.add_argument("--device", default="cuda")
+    p.add_argument("--seed", type=int, default=None)
     args = p.parse_args()
+    from seed_util import set_all_seeds; set_all_seeds(args.seed)
 
     args.output.mkdir(parents=True, exist_ok=True)
     device = args.device if torch.cuda.is_available() else "cpu"
@@ -200,8 +202,11 @@ def main():
     if miss:
         raise ValueError(f"missing cols: {sorted(miss)}")
 
-    subj_df, _ = run_loso(df, args.window, args.stride, device, args.epochs)
+    subj_df, preds = run_loso(df, args.window, args.stride, device, args.epochs)
     subj_df.to_csv(args.output / "persubject_smoothnet.csv", index=False)
+    if len(preds):
+        keep=[c for c in ["subject_id","view_type","camera","dataset","frame_index","gt_angle","mp_knee_angle","corrected_angle"] if c in preds.columns]
+        preds[keep].to_csv(args.output / "predictions_smoothnet.csv", index=False)
     raw = subj_df["mae_raw"].mean(); corr = subj_df["mae_corrected"].mean()
     print(f"\n[smoothnet] LOSO MAE {raw:.2f}° -> {corr:.2f}° "
           f"({(raw-corr)/raw*100:+.1f}%) | device={device}")

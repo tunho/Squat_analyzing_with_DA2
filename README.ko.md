@@ -21,6 +21,20 @@ corrected_angle = mp_knee_angle + predicted_residual
 임상적으로 중요한 깊은 굴곡 구간(무릎 < 110°)에서는 **+43.5%** 개선된다.
 80–130° 임계값 전 구간에서 개선율 차이가 3 %p 미만이라 **체리피킹이 아닌 강건한 결과**다.
 
+**보정기 9종**(고전 평활 → 2025 표형 딥러닝: SavGol, Kalman, MLP, ExtraTrees,
+SmoothNet, TCN, Diffusion/CARD, ExcelFormer, TabM) × **추정기 4종** ×
+**데이터셋 4종**을 3가지 프로토콜(도메인 내·pooled·LODO) + few-shot으로 벤치마크했다.
+**ExtraTrees가 어디서나 가장 견고**하며, 교차 도메인 전이는 전 방법 공통으로 실패한다(깊이
+분포 이동 한계). 모든 학습은 **시드 고정(42)이며 동일 GPU에서 bit-exact 재현**된다 —
+[REPRODUCE.md](REPRODUCE.md) 참고. 임상적으로 보정 후 **ICC 0.97**("우수"),
+±5° 통과율 2배(33% → 53%), −13° 편향 제거를 달성한다.
+
+**보정기 9종**(고전 평활 → 2025 표형 딥러닝: SavGol, Kalman, MLP, ExtraTrees,
+SmoothNet, TCN, Diffusion/CARD, ExcelFormer, TabM) × **추정기 4종** × **데이터셋
+4종**을 3가지 프로토콜(도메인 내 / pooled / leave-one-dataset-out) + few-shot
+회복으로 벤치마크했다. **ExtraTrees가 모든 조건에서 가장 견고**하며, 도메인 간
+전이는 전 보정기가 실패한
+
 ## 데이터셋
 
 | 데이터셋 | 역할 | 정답(GT) | 인원 |
@@ -43,14 +57,28 @@ corrected_angle = mp_knee_angle + predicted_residual
 | REHAB24-6 | 12.29° | 8.11° | **+34.0%** | +61.9% |
 | FiT3D | 20.25° | 11.94° | **+41.0%** | +62.1% |
 
-### 2. 베이스라인 비교 (pooled LOSO MAE °)
+### 2. 보정기 벤치마크 — 9종 × 3프로토콜 (개선율 %, seed 42)
 
-| 범위 | raw | savgol | affine | calib | linreg | **ours** |
-|---|--:|--:|--:|--:|--:|--:|
-| 전체 | 13.74 | 24.20 | 13.45 | 17.41 | 11.89 | **8.47** |
-| deep <110° | 19.42 | 39.20 | 18.92 | 29.73 | 15.55 | **10.97** |
+모든 보정기를 4개 데이터셋·4개 추정기(MediaPipe, NLF, RTMW3D, MotionBERT)에서
+동일 분할로 평가. 값은 원시 추정기 대비 평균 개선율%(음수=악화).
 
-선형 잔차 베이스라인 대비 우위가 깊은 구간에서 *더 커진다*(원시 대비 +43.5% vs +19.9%, 2.2배).
+| 보정기 (연도) | ① 도메인 내 | ② pooled (5-fold) | ③ LODO (교차 도메인) |
+|---|--:|--:|--:|
+| **ExtraTrees** (트리) | **+39.2** | +49.5 | **+3.6** |
+| ExcelFormer (KDD'24) | +34.7 | +46.6 | −0.1 |
+| SmoothNet (ECCV'22) | +26.7 | +7.6 | −0.3 |
+| TCN (Bai'18) | +25.5 | +7.7 | −1.3 |
+| Diffusion / CARD (NeurIPS'22) | +18.4 | +45.3 | −11.1 |
+| TabM (ICLR'25) | +15.6 | **+51.6** | +1.6 |
+| MLP (sklearn) | −5.2 | +42.9 | −18.4 |
+| SavGol (평활) | −7.4 | −65.3 | N/A |
+| Kalman (평활) | −25.4 | −73.5 | N/A |
+
+**요점.** (i) 도메인 내·pooled은 잘 되고 **ExtraTrees가 가장 견고** — 소규모 압승,
+대규모는 2025 SOTA(TabM)와 접전, 교차 도메인도 1위. (ii) 윈도우형 평활(SmoothNet/TCN)은
+pooled 혼합 시 급락, 고전 평활(SavGol/Kalman)은 악화. (iii) **교차 도메인(LODO)은 전
+보정기 공통 구조적 실패**(최고 +3.6%) — 깊이 covariate shift 한계이지 보정기 결함 아님.
+(iv) 개선은 원시 오차에 비례 — 추정기가 나쁠수록 크게 개선(r = 0.64, p ≪ 0.001).
 
 ### 3. 교차 데이터셋 일반화 — 경계를 정직하게 보고
 
@@ -96,9 +124,9 @@ Feature CSV  [mp_knee_angle, gt_angle, k_x/y/z, a_x/y/z, vis, view_type, ...]
 predictions.csv  [mp_knee_angle, corrected_angle, gt_angle, predicted_residual]
 ```
 
-기본 피처셋 `enhanced_safe`(39개)는 현재/지연 hip-상대 좌표, 관절 가시성, 분절 길이
-안정성, 각속도를 결합한다. 실시간 안전 변형 `enhanced_causal`(34개)은 오프라인 전용
-정규화를 제거해 스트리밍에 쓸 수 있다.
+논문 기본 피처셋 `v6`(21개)는 현재/지연 hip-상대 좌표, 관절 가시성, 분절 길이
+안정성, 각속도를 결합한다. 확장(`enhanced_safe`, 37개)·실시간 안전(`enhanced_causal`,
+34개, 오프라인 전용 정규화 제거) 변형도 제공한다.
 
 ## 저장소 구조
 
@@ -124,6 +152,18 @@ pip install -r requirements.txt
 python -m venv .venv-paper && source .venv-paper/bin/activate
 pip install -r requirements-paper.txt
 ```
+
+전체 벤치마크(9종 × 4추정기 × 4데이터셋 × 3프로토콜)·그림·통계: **[REPRODUCE.md](REPRODUCE.md)** 참고.
+
+## 재현성
+
+- 모든 학습 코드는 `scripts/seed_util.set_all_seeds()`로 **시드 42** 고정
+  (random / numpy / torch / CUDA + `cudnn.deterministic=True`).
+- 재실행 시 동일 GPU에서 **bit-exact** 검증됨(TabM 등 신경망 포함).
+  sklearn(ExtraTrees·MLP)·평활기는 하드웨어 무관 결정적.
+- **주의**: GPU 신경망은 GPU/cuDNN 버전이 다르면 미세하게 달라질 수 있음
+  (V100 vs 4070Ti 확인). 보고 수치는 **4070Ti** 기준.
+- 시드 고정 여부·결과 위치: `experiments/paper/재현성_재실행_대장.md`.
 
 ## 라이선스 · 데이터
 
