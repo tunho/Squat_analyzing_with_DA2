@@ -1,14 +1,13 @@
-mediapipe
-opencv-python
-numpy
-pandas
-scikit-learn
-matplotlib
-scipy
+# 전체 논문 파이프라인 (버전은 검증에 쓴 환경 기준; 근접 버전이면 재현 가능)
+mediapipe==0.10.35
+opencv-python==4.13.0.92
+numpy==2.4.6
+pandas==3.0.3
+scikit-learn==1.8.0
+matplotlib==3.10.9
+scipy==1.17.1
 
-# 신경망 보정기 (SmoothNet·TCN·Diffusion/CARD) 및 통계
-torch
-
-# 표형 딥러닝 보정기 벤치마크
-tabm            # TabM (ICLR 2025)
-pytorch-frame   # ExcelFormer (imports as torch_frame)
+# 신경망 보정기(SmoothNet·TCN·Diffusion/CARD) 및 표형 딥러닝 보정기
+torch==2.12.1
+tabm==0.0.3          # TabM (ICLR 2025)
+pytorch-frame==0.3.0 # ExcelFormer (imports as torch_frame)
