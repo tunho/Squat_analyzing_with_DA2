@@ -12,6 +12,13 @@ results_strict/
 *.png
 *.jpg
 *.pkl
+# 산출물(로그·발표자료·리포트) — 코드로 재생성, 공개 repo 미포함(로컬 보존)
+*.log
+*.pdf
+*.html
+*.pptx
+*.gif
+.~lock.*#
 dataset/
 outputs/
 data/
