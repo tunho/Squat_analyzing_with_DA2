@@ -49,6 +49,11 @@ experiments/paper/**/predictions.csv
 experiments/paper/**/*_predictions.csv
 experiments/paper/**/predictions_*.csv
 experiments/paper/**/loso_predictions.csv
+# 결과 집계 CSV/JSON 전부 — 코드로 재생성 가능, 공개 repo 미포함(로컬 보존/라이선스). 문서(.md)는 추적.
+experiments/paper/*.csv
+experiments/paper/**/*.csv
+experiments/paper/*.json
+experiments/paper/**/*.json
 
 # 대용량 모델 가중치 / 벤더링된 외부 repo (비커밋, 별도 다운로드)
 models_nlf/
