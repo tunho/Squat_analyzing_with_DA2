@@ -1,12 +1,18 @@
 # Configuration for Squat Analysis Project
 # Central place for all adjustable parameters and thresholds.
 
-import torch
+# torch는 선택적 depth 모델(DepthAnythingV2)에만 필요 — 코어 무릎각 파이프라인엔 불필요.
+# 미설치 환경(코어 requirements만 설치)에서도 import 되도록 guard.
+try:
+    import torch
+    _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+except ImportError:
+    _DEVICE = "cpu"
 
 # 1. Model Configuration
 MODEL_CONFIG = {
     'DEPTH_MODEL_ID': "depth-anything/Depth-Anything-V2-Small-hf",
-    'DEVICE': "cuda" if torch.cuda.is_available() else "cpu",
+    'DEVICE': _DEVICE,
     'POSE_MODEL_COMPLEXITY': 1, # 0=Lite, 1=Full, 2=Heavy
     'MIN_DETECTION_CONFIDENCE': 0.5,
     'MIN_TRACKING_CONFIDENCE': 0.5

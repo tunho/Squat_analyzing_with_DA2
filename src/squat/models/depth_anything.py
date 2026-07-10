@@ -4,9 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any
 import cv2
 import numpy as np
-import torch
-from PIL import Image
-from transformers import AutoImageProcessor, AutoModelForDepthEstimation
+# torch·transformers·PIL 은 선택적 depth 모델에만 필요 → 사용 시점에 지연 import
+# (코어 무릎각 파이프라인은 이 무거운 의존성 없이 동작)
 
 from squat.config import MODEL_CONFIG
 
@@ -19,10 +18,13 @@ class DepthAnythingEstimator:
     model: Any = field(init=False)
 
     def __post_init__(self) -> None:
+        from transformers import AutoImageProcessor, AutoModelForDepthEstimation
         self.processor = AutoImageProcessor.from_pretrained(self.model_id)
         self.model = AutoModelForDepthEstimation.from_pretrained(self.model_id).to(self.device)
 
     def estimate(self, frame_bgr: np.ndarray) -> np.ndarray:
+        import torch
+        from PIL import Image
         image_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(image_rgb)
 
